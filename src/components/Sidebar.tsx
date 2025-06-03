@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { BarChart, Calendar, CreditCard, LogOut, MessageSquare, Users } from 'lucide-react'
 import { useContext } from 'react'
-import { AuthContext } from '../../context/AuthContext'
+import { AuthContext } from '../context/AuthContext.tsx'
 
 const navItems = [
     { path: '/', label: 'Dashboard', icon: BarChart },

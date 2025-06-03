@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import Sidebar from '../components/ui/Sidebar'
+import Sidebar from '../components/Sidebar.tsx'
 import { addMember, getMembers, updateMember, deactivateMember, activateMember } from '../services/api'
 import type {Member} from '../types'
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import Sidebar from '../components/ui/Sidebar'
+import Sidebar from '../components/Sidebar.tsx'
 import { addNotification, getNotifications, markNotificationAsRead, deleteNotification } from '../services/api'
 import type {Notification} from '../types'
 
