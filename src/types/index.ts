@@ -1,17 +1,17 @@
 export interface Member {
-    memberId?: number
-    name: string
-    age: number
-    height: number
-    weight: number
-    nicNumber: string
-    email: string
-    address: string
-    qrCodeData: string
-    fingerprintData: string
-    faceImageData: string
-    membershipStartDate: string
-    activeStatus: boolean
+    memberId?: string;
+    name: string;
+    age?: number;
+    height?: number;
+    weight?: number;
+    nicNumber: string;
+    email: string;
+    address?: string;
+    qrCodeData?: string;
+    fingerprintData?: string;
+    faceImageData?: string;
+    membershipStartDate?: string;
+    activeStatus: boolean;
 }
 
 export interface Attendance {

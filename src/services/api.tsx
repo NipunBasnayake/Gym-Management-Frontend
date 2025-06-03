@@ -34,17 +34,17 @@ export const getMemberById = async (id: number) => {
     return response.data
 }
 
-export const updateMember = async (id: number, member: Member) => {
+export const updateMember = async (id: string, member: Member) => {
     const response = await api.put(`/v1/member/${id}`, member)
     return response.data
 }
 
-export const deactivateMember = async (id: number) => {
+export const deactivateMember = async (id: string) => {
     const response = await api.put(`/v1/member/${id}/deactivate`)
     return response.data
 }
 
-export const activateMember = async (id: number) => {
+export const activateMember = async (id: string) => {
     const response = await api.put(`/v1/member/${id}/activate`)
     return response.data
 }
