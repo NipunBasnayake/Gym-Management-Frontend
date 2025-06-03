@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import Sidebar from '../components/Sidebar.tsx'
 import { addPayment, getPayments, updatePayment, deletePayment } from '../services/api'
@@ -18,8 +18,11 @@ export default function Payments() {
     })
 
     useEffect(() => {
-        fetchPayments()
+        (async () => {
+            await fetchPayments()
+        })()
     }, [])
+
 
     const fetchPayments = async () => {
         setLoading(true)
@@ -48,7 +51,7 @@ export default function Payments() {
                 await addPayment(formData)
             }
             setShowForm(false)
-            fetchPayments()
+            await fetchPayments()
             setFormData({ memberId: 0, amount: 0, paymentDate: '', validUntilDate: '', paymentStatus: '' })
         } catch (err) {
             console.log(err)
@@ -67,7 +70,7 @@ export default function Payments() {
         try {
             setLoading(true)
             await deletePayment(id)
-            fetchPayments()
+            await fetchPayments()
         } catch (err) {
             console.log(err)
             setError('Failed to delete payment')

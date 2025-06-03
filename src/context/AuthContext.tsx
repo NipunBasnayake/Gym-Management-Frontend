@@ -11,6 +11,7 @@ interface AuthContextType {
     logoutUser: () => Promise<void>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext<AuthContextType>({
     isAuthenticated: false,
     loading: true,

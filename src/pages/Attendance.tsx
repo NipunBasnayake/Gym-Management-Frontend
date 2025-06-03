@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import Sidebar from '../components/Sidebar.tsx'
 import { addAttendance, getAttendances } from '../services/api'
@@ -16,8 +16,11 @@ export default function Attendance() {
     })
 
     useEffect(() => {
-        fetchAttendances()
+        (async () => {
+            await fetchAttendances()
+        })()
     }, [])
+
 
     const fetchAttendances = async () => {
         setLoading(true)
@@ -43,7 +46,7 @@ export default function Attendance() {
             setLoading(true)
             await addAttendance(formData)
             setShowForm(false)
-            fetchAttendances()
+            await fetchAttendances()
             setFormData({ memberId: 0, date: '', timeIn: '' })
         } catch (err) {
             setError('Failed to add attendance')
