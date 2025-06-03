@@ -21,7 +21,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({children}) => {
     const navigate = useNavigate()
 
     useEffect(() => {
-        // Check for existing token or session
         const token = localStorage.getItem('token')
         setIsAuthenticated(!!token)
     }, [])

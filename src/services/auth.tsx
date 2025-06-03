@@ -1,10 +1,11 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
+const API_URL = import.meta.env.VITE_API_URL
 
 export const login = async (email: string, password: string) => {
     const response = await axios.post(`${API_URL}/v1/auth/login`, { email, password })
-    localStorage.setItem('token', response.data.token)
+    console.log(response.data)
+    localStorage.setItem('token', response.data)
     return response.data
 }
 

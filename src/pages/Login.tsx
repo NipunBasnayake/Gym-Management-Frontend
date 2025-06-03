@@ -2,7 +2,61 @@ import { useState, useContext } from 'react'
 import { Lock, Mail } from 'lucide-react'
 import { AuthContext } from '../context/AuthContext'
 import { forgotPassword, resetPassword } from '../services/auth'
-import axios from "axios";
+import axios from 'axios'
+
+interface InputFieldProps {
+    type: string
+    value: string
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+    placeholder: string
+    icon?: React.ReactNode
+    label: string
+}
+
+const InputField: React.FC<InputFieldProps> = ({ type, value, onChange, placeholder, icon, label }) => (
+    <div className="mb-4">
+        <label className="block text-slate-600 dark:text-slate-400 mb-2 text-sm font-medium">{label}</label>
+        <div className="relative">
+            {icon && <span className="absolute left-3 top-3 text-slate-400">{icon}</span>}
+            <input
+                type={type}
+                value={value}
+                onChange={onChange}
+                className={`w-full p-2 ${icon ? 'pl-10' : ''} border rounded-lg dark:bg-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors`}
+                placeholder={placeholder}
+            />
+        </div>
+    </div>
+)
+
+interface ButtonProps {
+    type?: 'button' | 'submit' | 'reset'
+    onClick?: () => void
+    disabled?: boolean
+    loading?: boolean
+    children: React.ReactNode
+}
+
+const Button: React.FC<ButtonProps> = ({ type = 'button', onClick, disabled, loading, children }) => (
+    <button
+        type={type}
+        onClick={onClick}
+        disabled={disabled || loading}
+        className="w-full bg-orange-500 text-white py-2 rounded-lg disabled:opacity-50 hover:bg-orange-600 transition-colors"
+    >
+        {loading ? 'Processing...' : children}
+    </button>
+)
+
+const LinkButton: React.FC<ButtonProps> = ({ onClick, children }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        className="mt-4 text-blue-600 dark:text-blue-400 text-sm hover:underline"
+    >
+        {children}
+    </button>
+)
 
 export default function Login() {
     const { loginUser } = useContext(AuthContext)
@@ -55,8 +109,7 @@ export default function Login() {
             } else {
                 setError('An unexpected error occurred')
             }
-        }
-        finally {
+        } finally {
             setLoading(false)
         }
     }
@@ -73,7 +126,7 @@ export default function Login() {
             setShowResetPassword(false)
             setEmail(forgotEmail)
             setPassword(newPassword)
-            await loginUser(forgotEmail, newPassword) // Optional: Auto-login after reset
+            await loginUser(forgotEmail, newPassword)
         } catch (err: unknown) {
             console.error(err)
             if (axios.isAxiosError(err) && err.response?.data?.message) {
@@ -93,164 +146,99 @@ export default function Login() {
                     {showResetPassword ? 'Reset Password' : showForgotPassword ? 'Forgot Password' : 'Login'}
                 </h1>
 
-                {error && <div className="bg-red-100 text-red-600 p-3 rounded-lg mb-4">{error}</div>}
+                {error && (
+                    <div className="bg-red-100 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>
+                )}
 
                 {!showForgotPassword && !showResetPassword && (
                     <form onSubmit={handleLogin}>
-                        <div className="mb-4">
-                            <label className="block text-slate-600 dark:text-slate-400 mb-2">Email</label>
-                            <div className="relative">
-                                <Mail className="absolute w-5 h-5 text-slate-400 top-3 left-3" />
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => {
-                                        setEmail(e.target.value)
-                                        setError('')
-                                    }}
-                                    className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                                    placeholder="Enter your email"
-                                />
-                            </div>
-                        </div>
-                        <div className="mb-6">
-                            <label className="block text-slate-600 dark:text-slate-400 mb-2">Password</label>
-                            <div className="relative">
-                                <Lock className="absolute w-5 h-5 text-slate-400 top-3 left-3" />
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => {
-                                        setPassword(e.target.value)
-                                        setError('')
-                                    }}
-                                    className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                                    placeholder="Enter your password"
-                                />
-                            </div>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-orange-500 text-white py-2 rounded-lg disabled:opacity-50"
-                        >
-                            {loading ? 'Logging in...' : 'Login'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setShowForgotPassword(true)
+                        <InputField
+                            type="email"
+                            value={email}
+                            onChange={(e) => {
+                                setEmail(e.target.value)
                                 setError('')
                             }}
-                            className="mt-4 text-blue-600 dark:text-blue-400 text-sm"
-                        >
-                            Forgot Password?
-                        </button>
+                            placeholder="Enter your email"
+                            icon={<Mail className="w-5 h-5" />}
+                            label="Email"
+                        />
+                        <InputField
+                            type="password"
+                            value={password}
+                            onChange={(e) => {
+                                setPassword(e.target.value)
+                                setError('')
+                            }}
+                            placeholder="Enter your password"
+                            icon={<Lock className="w-5 h-5" />}
+                            label="Password"
+                        />
+                        <Button type="submit" disabled={loading} loading={loading}>
+                            Login
+                        </Button>
+                        <LinkButton onClick={() => setShowForgotPassword(true)}>Forgot Password?</LinkButton>
                     </form>
                 )}
 
                 {showForgotPassword && !showResetPassword && (
                     <form onSubmit={handleForgotPassword}>
-                        <div className="mb-4">
-                            <label className="block text-slate-600 dark:text-slate-400 mb-2">Email</label>
-                            <div className="relative">
-                                <Mail className="absolute w-5 h-5 text-slate-400 top-3 left-3" />
-                                <input
-                                    type="email"
-                                    value={forgotEmail}
-                                    onChange={(e) => {
-                                        setForgotEmail(e.target.value)
-                                        setError('')
-                                    }}
-                                    className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                                    placeholder="Enter your email"
-                                />
-                            </div>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-orange-500 text-white py-2 rounded-lg disabled:opacity-50"
-                        >
-                            {loading ? 'Sending...' : 'Send Reset Email'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setShowForgotPassword(false)
+                        <InputField
+                            type="email"
+                            value={forgotEmail}
+                            onChange={(e) => {
+                                setForgotEmail(e.target.value)
                                 setError('')
                             }}
-                            className="mt-4 text-blue-600 dark:text-blue-400 text-sm"
-                        >
-                            Back to Login
-                        </button>
+                            placeholder="Enter your email"
+                            icon={<Mail className="w-5 h-5" />}
+                            label="Email"
+                        />
+                        <Button type="submit" disabled={loading} loading={loading}>
+                            Send Reset Email
+                        </Button>
+                        <LinkButton onClick={() => setShowForgotPassword(false)}>Back to Login</LinkButton>
                     </form>
                 )}
 
                 {showResetPassword && (
                     <form onSubmit={handleResetPassword}>
-                        <div className="mb-4">
-                            <label className="block text-slate-600 dark:text-slate-400 mb-2">Email</label>
-                            <div className="relative">
-                                <Mail className="absolute w-5 h-5 text-slate-400 top-3 left-3" />
-                                <input
-                                    type="email"
-                                    value={forgotEmail}
-                                    onChange={(e) => {
-                                        setForgotEmail(e.target.value)
-                                        setError('')
-                                    }}
-                                    className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                                    placeholder="Enter your email"
-                                />
-                            </div>
-                        </div>
-                        <div className="mb-4">
-                            <label className="block text-slate-600 dark:text-slate-400 mb-2">OTP</label>
-                            <input
-                                type="text"
-                                value={otp}
-                                onChange={(e) => {
-                                    setOtp(e.target.value)
-                                    setError('')
-                                }}
-                                className="w-full p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                                placeholder="Enter OTP"
-                            />
-                        </div>
-                        <div className="mb-6">
-                            <label className="block text-slate-600 dark:text-slate-400 mb-2">New Password</label>
-                            <div className="relative">
-                                <Lock className="absolute w-5 h-5 text-slate-400 top-3 left-3" />
-                                <input
-                                    type="password"
-                                    value={newPassword}
-                                    onChange={(e) => {
-                                        setNewPassword(e.target.value)
-                                        setError('')
-                                    }}
-                                    className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                                    placeholder="Enter new password"
-                                />
-                            </div>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-orange-500 text-white py-2 rounded-lg disabled:opacity-50"
-                        >
-                            {loading ? 'Resetting...' : 'Reset Password'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setShowResetPassword(false)
+                        <InputField
+                            type="email"
+                            value={forgotEmail}
+                            onChange={(e) => {
+                                setForgotEmail(e.target.value)
                                 setError('')
                             }}
-                            className="mt-4 text-blue-600 dark:text-blue-400 text-sm"
-                        >
-                            Back to Login
-                        </button>
+                            placeholder="Enter your email"
+                            icon={<Mail className="w-5 h-5" />}
+                            label="Email"
+                        />
+                        <InputField
+                            type="text"
+                            value={otp}
+                            onChange={(e) => {
+                                setOtp(e.target.value)
+                                setError('')
+                            }}
+                            placeholder="Enter OTP"
+                            label="OTP"
+                        />
+                        <InputField
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => {
+                                setNewPassword(e.target.value)
+                                setError('')
+                            }}
+                            placeholder="Enter new password"
+                            icon={<Lock className="w-5 h-5" />}
+                            label="New Password"
+                        />
+                        <Button type="submit" disabled={loading} loading={loading}>
+                            Reset Password
+                        </Button>
+                        <LinkButton onClick={() => setShowResetPassword(false)}>Back to Login</LinkButton>
                     </form>
                 )}
             </div>
