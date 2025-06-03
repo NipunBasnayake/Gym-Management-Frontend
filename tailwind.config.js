@@ -3,9 +3,13 @@ module.exports = {
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}',
   ],
-  darkMode: 'media',
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        primary: '#f97316', // Orange-500 for consistency
+      },
+    },
   },
   plugins: [],
+  darkMode: 'media',
 }
