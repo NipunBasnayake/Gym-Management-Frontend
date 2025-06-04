@@ -1,7 +1,6 @@
-import { createContext, useEffect, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { login, logout } from '../services/auth'
-import axios from "axios"
+import React, {createContext, useState, useEffect, type ReactNode} from 'react'
+import {useNavigate} from 'react-router-dom'
+import {login, logout} from '../services/auth'
 
 interface AuthContextType {
     isAuthenticated: boolean
@@ -11,58 +10,44 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType>({
     isAuthenticated: false,
-    loginUser: async () => {},
-    logoutUser: async () => {},
+    loginUser: async () => {
+    },
+    logoutUser: async () => {
+    },
 })
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false)
-    const [loading, setLoading] = useState(true)
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({children}) => {
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
     const navigate = useNavigate()
 
     useEffect(() => {
         const token = localStorage.getItem('token')
-        if (token) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-            setIsAuthenticated(true)
-        }
-        setLoading(false)
+        setIsAuthenticated(!!token)
     }, [])
 
     const loginUser = async (email: string, password: string) => {
         try {
-            const data = await login(email, password)
-            if (data?.token) {
-                localStorage.setItem('token', data.token)
-                axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
-                setIsAuthenticated(true)
-                navigate('/')
-            }
-        } catch (err) {
-            console.error('Login error:', err)
-            throw err
+            await login(email, password)
+            setIsAuthenticated(true)
+            navigate('/')
+        } catch (error) {
+            console.log(error)
         }
     }
 
     const logoutUser = async () => {
         try {
             await logout()
-        } catch (err) {
-            console.error('Logout error:', err)
-        } finally {
-            localStorage.removeItem('token')
-            delete axios.defaults.headers.common['Authorization']
             setIsAuthenticated(false)
+            localStorage.removeItem('token')
             navigate('/login')
+        } catch (error) {
+            console.log(error)
         }
     }
 
-    if (loading) {
-        return <div>Loading...</div>
-    }
-
     return (
-        <AuthContext.Provider value={{ isAuthenticated, loginUser, logoutUser }}>
+        <AuthContext.Provider value={{isAuthenticated, loginUser, logoutUser}}>
             {children}
         </AuthContext.Provider>
     )

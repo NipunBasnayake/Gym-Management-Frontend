@@ -6,7 +6,7 @@ import Attendance from './pages/Attendance'
 import Notifications from './pages/Notifications'
 import Payments from './pages/Payments'
 import Login from './pages/Login'
-import { useContext, type JSX } from 'react'
+import {type JSX, useContext} from 'react'
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
     const { isAuthenticated } = useContext(AuthContext)

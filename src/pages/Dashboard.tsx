@@ -1,5 +1,5 @@
 import { QrCode, Users, Calendar, CreditCard, BarChart, Dumbbell } from 'lucide-react'
-import Sidebar from '../components/ui/Sidebar'
+import Sidebar from '../components/Sidebar.tsx'
 import { useState } from 'react'
 
 export default function Dashboard() {
