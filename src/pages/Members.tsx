@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
-import Sidebar from '../components/ui/Sidebar'
-import { addMember, getMembers, updateMember, deactivateMember, activateMember } from '../services/api'
+import React, {useState, useEffect} from 'react'
+import {Plus} from 'lucide-react'
+import Sidebar from '../components/Sidebar.tsx'
+import {addMember, getMembers, updateMember, deactivateMember, activateMember} from '../services/api'
 import type {Member} from '../types'
 
 export default function Members() {
@@ -25,7 +25,9 @@ export default function Members() {
     })
 
     useEffect(() => {
-        fetchMembers()
+        (async () => {
+            await fetchMembers()
+        })()
     }, [])
 
     const fetchMembers = async () => {
@@ -55,7 +57,7 @@ export default function Members() {
                 await addMember(formData)
             }
             setShowForm(false)
-            fetchMembers()
+            await fetchMembers()
             setFormData({
                 name: '',
                 age: 0,
@@ -91,7 +93,7 @@ export default function Members() {
             } else {
                 await activateMember(member.memberId!)
             }
-            fetchMembers()
+            await fetchMembers()
         } catch (err) {
             console.log(err)
             setError('Failed to update member status')
@@ -101,8 +103,9 @@ export default function Members() {
     }
 
     return (
-        <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
-            <Sidebar />
+        <div
+            className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+            <Sidebar/>
             <div className="flex-1 p-4 md:p-8 pb-20 md:pb-8">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Members</h1>
@@ -110,7 +113,7 @@ export default function Members() {
                         onClick={() => setShowForm(true)}
                         className="bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center"
                     >
-                        <Plus className="w-5 h-5 mr-2" />
+                        <Plus className="w-5 h-5 mr-2"/>
                         Add Member
                     </button>
                 </div>
@@ -127,56 +130,56 @@ export default function Members() {
                                 type="text"
                                 placeholder="Name"
                                 value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                onChange={(e) => setFormData({...formData, name: e.target.value})}
                                 className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
                             />
                             <input
                                 type="email"
                                 placeholder="Email"
                                 value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                onChange={(e) => setFormData({...formData, email: e.target.value})}
                                 className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
                             />
                             <input
                                 type="text"
                                 placeholder="NIC Number"
                                 value={formData.nicNumber}
-                                onChange={(e) => setFormData({ ...formData, nicNumber: e.target.value })}
+                                onChange={(e) => setFormData({...formData, nicNumber: e.target.value})}
                                 className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
                             />
                             <input
                                 type="number"
                                 placeholder="Age"
                                 value={formData.age}
-                                onChange={(e) => setFormData({ ...formData, age: parseInt(e.target.value) })}
+                                onChange={(e) => setFormData({...formData, age: parseInt(e.target.value)})}
                                 className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
                             />
                             <input
                                 type="number"
                                 placeholder="Height (cm)"
                                 value={formData.height}
-                                onChange={(e) => setFormData({ ...formData, height: parseFloat(e.target.value) })}
+                                onChange={(e) => setFormData({...formData, height: parseFloat(e.target.value)})}
                                 className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
                             />
                             <input
                                 type="number"
                                 placeholder="Weight (kg)"
                                 value={formData.weight}
-                                onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) })}
+                                onChange={(e) => setFormData({...formData, weight: parseFloat(e.target.value)})}
                                 className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
                             />
                             <input
                                 type="text"
                                 placeholder="Address"
                                 value={formData.address}
-                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                onChange={(e) => setFormData({...formData, address: e.target.value})}
                                 className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
                             />
                             <input
                                 type="date"
                                 placeholder="Membership Start Date"
                                 value={formData.membershipStartDate}
-                                onChange={(e) => setFormData({ ...formData, membershipStartDate: e.target.value })}
+                                onChange={(e) => setFormData({...formData, membershipStartDate: e.target.value})}
                                 className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
                             />
                             <div className="md:col-span-2 flex justify-end gap-4">

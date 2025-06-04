@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import Sidebar from '../components/ui/Sidebar'
+import Sidebar from '../components/Sidebar.tsx'
 import { addNotification, getNotifications, markNotificationAsRead, deleteNotification } from '../services/api'
 import type {Notification} from '../types'
 
@@ -17,8 +17,11 @@ export default function Notifications() {
     })
 
     useEffect(() => {
-        fetchNotifications()
+        (async () => {
+            await fetchNotifications()
+        })()
     }, [])
+
 
     const fetchNotifications = async () => {
         setLoading(true)
@@ -43,7 +46,7 @@ export default function Notifications() {
             setLoading(true)
             await addNotification(formData)
             setShowForm(false)
-            fetchNotifications()
+            await fetchNotifications()
             setFormData({ message: '', dateCreated: '', isRead: false, type: '' })
         } catch (err) {
             console.log(err)
@@ -57,7 +60,7 @@ export default function Notifications() {
         try {
             setLoading(true)
             await markNotificationAsRead(id)
-            fetchNotifications()
+            await fetchNotifications()
         } catch (err) {
             console.log(err)
             setError('Failed to mark notification as read')
@@ -70,7 +73,7 @@ export default function Notifications() {
         try {
             setLoading(true)
             await deleteNotification(id)
-            fetchNotifications()
+            await fetchNotifications()
         } catch (err) {
             console.log(err)
             setError('Failed to delete notification')
