@@ -170,19 +170,6 @@ export default function MemberForm({formData, onSubmit, onCancel, loading}: Memb
                     />
                 </div>
 
-                <div className="flex flex-col gap-1">
-                    <label htmlFor="membershipStartDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Membership Start Date
-                    </label>
-                    <input
-                        id="membershipStartDate"
-                        type="date"
-                        value={data.membershipStartDate}
-                        onChange={(e) => setData({...data, membershipStartDate: e.target.value})}
-                        className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full"
-                    />
-                </div>
-
                 {/* Biometric Data Section */}
                 <div className="border-t border-gray-200 dark:border-gray-600 pt-4 mt-4 md:col-span-2">
                     <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
