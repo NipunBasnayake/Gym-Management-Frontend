@@ -333,7 +333,7 @@ export default function Members() {
     )
 
     return (
-        <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 dark:from-slate-900 dark:via-gray-900 dark:to-slate-800">
+        <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
             <ToastContainer
                 position="top-right"
                 autoClose={3000}
