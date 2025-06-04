@@ -20,6 +20,7 @@ export interface Attendance {
     memberId: number
     date: string
     timeIn: string
+    timeOut: string;
 }
 
 export interface Notification {
