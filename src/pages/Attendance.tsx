@@ -1,151 +1,455 @@
-import React, { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import  { useState, useEffect, useMemo } from 'react'
+import {Search, Filter, Calendar, Clock, UserCheck, X} from 'lucide-react'
+import { toast, ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import Sidebar from '../components/Sidebar.tsx'
-import { addAttendance, getAttendances } from '../services/api'
-import type {Attendance} from '../types'
+import {
+    addAttendance,
+    getAttendances,
+    getAttendanceByMemberId,
+    getMemberById
+} from '../services/api'
+import type { Attendance, Member } from '../types'
+
+interface EnhancedAttendance extends Attendance {
+    memberName?: string
+    nicNumber?: string
+    mobileNumber?: string
+}
 
 export default function Attendance() {
-    const [attendances, setAttendances] = useState<Attendance[]>([])
+    const [attendances, setAttendances] = useState<EnhancedAttendance[]>([])
+    const [memberCache, setMemberCache] = useState<Map<number, Member>>(new Map())
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState('')
-    const [showForm, setShowForm] = useState(false)
-    const [formData, setFormData] = useState<Attendance>({
-        memberId: 0,
-        date: '',
-        timeIn: '',
+    const [showFilters, setShowFilters] = useState(false)
+    const [timeFilter, setTimeFilter] = useState<'today' | 'thisWeek' | 'thisMonth' | 'all'>('all')
+    const [searchTerm, setSearchTerm] = useState('')
+    const [dateFilter, setDateFilter] = useState({
+        startDate: '',
+        endDate: ''
     })
+    const [showCamera, setShowCamera] = useState(false)
 
     useEffect(() => {
-        (async () => {
-            await fetchAttendances()
-        })()
+        fetchAttendances()
     }, [])
 
+    const fetchMemberData = async (memberId: number): Promise<Member> => {
+        if (memberCache.has(memberId)) {
+            return memberCache.get(memberId)!
+        }
+        try {
+            const member = await getMemberById(memberId)
+            setMemberCache(prev => new Map(prev).set(memberId, member))
+            return member
+        } catch (err) {
+            console.log(err)
+            toast.error(`Failed to fetch member data for ID ${memberId}`, { position: 'top-right' })
+            return {memberId, name: 'Unknown', nicNumber: '-', mobileNumber: '-'} as unknown as Member
+        }
+    }
 
     const fetchAttendances = async () => {
         setLoading(true)
         try {
             const data = await getAttendances()
-            setAttendances(data)
+            const enhancedData = await Promise.all(
+                data.map(async (att: Attendance) => {
+                    const member = await fetchMemberData(att.memberId)
+                    return {
+                        ...att,
+                        memberName: member.name,
+                        nicNumber: member.nicNumber,
+                        mobileNumber: member.mobileNumber
+                    }
+                })
+            )
+            setAttendances(enhancedData)
         } catch (err) {
-            setError('Failed to fetch attendances')
             console.log(err)
-        }
-        finally {
-            setLoading(false)
-        }
-    }
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!formData.memberId || !formData.date || !formData.timeIn) {
-            setError('Member ID, date, and time in are required')
-            return
-        }
-        try {
-            setLoading(true)
-            await addAttendance(formData)
-            setShowForm(false)
-            await fetchAttendances()
-            setFormData({ memberId: 0, date: '', timeIn: '' })
-        } catch (err) {
-            setError('Failed to add attendance')
-            console.log(err)
+            toast.error('Failed to fetch attendances', { position: 'top-right' })
         } finally {
             setLoading(false)
         }
     }
 
+    const handleQRScan = async (scannedData: string) => {
+        try {
+            setLoading(true)
+            // Parse QR code data (assuming format: "memberId: <id>")
+            const memberIdMatch = scannedData.match(/memberId: (\d+)/)
+            if (!memberIdMatch) {
+                throw new Error('Invalid QR code format')
+            }
+            const memberId = parseInt(memberIdMatch[1])
+
+            const now = new Date()
+            const date = now.toISOString().split('T')[0]
+
+            const memberAttendances = await getAttendanceByMemberId(memberId)
+            const todayAttendance = memberAttendances.find(
+                (att: Attendance) => att.date === date && !att.timeOut
+            )
+
+            if (todayAttendance) {
+                // Note: You'll need to implement an updateAttendance endpoint
+                // await updateAttendance(todayAttendance.attendanceId, { timeOut: time })
+                toast.success('Attendance updated with time out', { position: 'top-right' })
+            } else {
+                await addAttendance(memberId)
+                toast.success('Attendance recorded', { position: 'top-right' })
+            }
+
+            await fetchAttendances()
+            setShowCamera(false)
+        } catch (err) {
+            console.log(err)
+            toast.error('Failed to process attendance', { position: 'top-right' })
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleScanButtonClick = () => {
+        setShowCamera(true)
+        // Placeholder for QR code scanning
+        // In a real implementation, use a library like jsQR or react-qr-reader
+        setTimeout(() => {
+            // Simulate scanning a QR code with memberId
+            const simulatedQRData = `memberId: ${prompt('Enter Member ID for demo') || '0'}`;
+            handleQRScan(simulatedQRData)
+        }, 1000)
+    }
+
+    const filteredAttendances = useMemo(() => {
+        let filtered = [...attendances]
+
+        // Apply time-based filtering
+        const now = new Date()
+        if (timeFilter === 'today') {
+            const today = now.toISOString().split('T')[0]
+            filtered = filtered.filter(att => att.date === today)
+        } else if (timeFilter === 'thisWeek') {
+            const weekStart = new Date(now)
+            weekStart.setDate(now.getDate() - now.getDay())
+            const weekEnd = new Date(now)
+            weekEnd.setDate(now.getDate() - now.getDay() + 6)
+            filtered = filtered.filter(att => {
+                const attDate = new Date(att.date)
+                return attDate >= weekStart && attDate <= weekEnd
+            })
+        } else if (timeFilter === 'thisMonth') {
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+            filtered = filtered.filter(att => {
+                const attDate = new Date(att.date)
+                return attDate >= monthStart && attDate <= monthEnd
+            })
+        }
+
+        // Search filter
+        if (searchTerm) {
+            filtered = filtered.filter(
+                (att) =>
+                    att.memberId.toString().includes(searchTerm) ||
+                    (att.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+                    (att.nicNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+                    (att.mobileNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
+            )
+        }
+
+        // Date range filter
+        if (dateFilter.startDate || dateFilter.endDate) {
+            filtered = filtered.filter((att) => {
+                const attDate = new Date(att.date)
+                const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null
+                const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null
+
+                if (startDate && endDate) {
+                    return attDate >= startDate && attDate <= endDate
+                } else if (startDate) {
+                    return attDate >= startDate
+                } else if (endDate) {
+                    return attDate <= endDate
+                }
+                return true
+            })
+        }
+
+        return filtered
+    }, [attendances, searchTerm, dateFilter, timeFilter])
+
+    const clearFilters = () => {
+        setSearchTerm('')
+        setDateFilter({ startDate: '', endDate: '' })
+        setTimeFilter('all')
+    }
+
+    const hasActiveFilters = searchTerm || dateFilter.startDate || dateFilter.endDate || timeFilter !== 'all'
+
+    const renderTable = (attendancesToShow: EnhancedAttendance[]) => (
+        <div className="overflow-x-auto h-full">
+            <table className="w-full min-w-[640px] h-full">
+                <thead>
+                <tr className="bg-slate-50 dark:bg-slate-700/50 border-b dark:border-slate-600">
+                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                        Member
+                    </th>
+                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider hidden sm:table-cell">
+                        NIC Number
+                    </th>
+                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider hidden sm:table-cell">
+                        Mobile Number
+                    </th>
+                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                        Date
+                    </th>
+                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                        Time In
+                    </th>
+                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                        Time Out
+                    </th>
+                </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {attendancesToShow.map((att, index) => (
+                    <tr
+                        key={att.attendanceId}
+                        className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${
+                            index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/50 dark:bg-slate-800/50'
+                        }`}
+                    >
+                        <td className="py-4 px-6">
+                            <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
+                                <div className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow">
+                                    {att.memberId.toString().slice(-2)}
+                                </div>
+                                <span>{att.memberName || `ID #${att.memberId}`}</span>
+                            </div>
+                        </td>
+                        <td className="py-4 px-6 hidden sm:table-cell">
+                            <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
+                                {att.nicNumber || '-'}
+                            </div>
+                        </td>
+                        <td className="py-4 px-6 hidden sm:table-cell">
+                            <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
+                                {att.mobileNumber || '-'}
+                            </div>
+                        </td>
+                        <td className="py-4 px-6">
+                            <div className="text-slate-600 dark:text-slate-300">
+                                {new Date(att.date).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                })}
+                            </div>
+                        </td>
+                        <td className="py-4 px-6">
+                            <div className="text-slate-600 dark:text-slate-300">
+                                {att.timeIn}
+                            </div>
+                        </td>
+                        <td className="py-4 px-6">
+                            <div className="text-slate-600 dark:text-slate-300">
+                                {att.timeOut || '-'}
+                            </div>
+                        </td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
+        </div>
+    )
+
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+            <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                closeOnClick
+                pauseOnHover
+                theme="colored"
+                toastClassName="dark:bg-slate-800 dark:text-white"
+            />
             <Sidebar />
-            <div className="flex-1 p-4 md:p-8 pb-20 md:pb-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Attendance</h1>
-                    <button
-                        onClick={() => setShowForm(true)}
-                        className="bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center"
-                    >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Add Attendance
-                    </button>
+            <div className="flex-1 p-4 sm:p-6 md:p-8">
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                    <div>
+                        <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white mb-2">
+                            Attendance
+                        </h1>
+                        <p className="text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            {filteredAttendances.length} of {attendances.length} attendance records shown
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={`px-4 py-2 rounded-xl flex items-center transition-all duration-200 ${
+                                hasActiveFilters
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                    : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                            }`}
+                        >
+                            <Filter className="w-4 h-4 mr-2" />
+                            Filters
+                            {hasActiveFilters && (
+                                <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
+                  Active
+                </span>
+                            )}
+                        </button>
+                        <button
+                            onClick={handleScanButtonClick}
+                            disabled={loading}
+                            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 py-3 rounded-xl flex items-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 dark:shadow-orange-500/25 disabled:opacity-50"
+                        >
+                            <UserCheck className="w-5 h-5 mr-2" />
+                            Scan Attendance
+                        </button>
+                    </div>
                 </div>
 
-                {error && <div className="bg-red-100 text-red-600 p-3 rounded-lg mb-4">{error}</div>}
-
-                {showForm && (
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg mb-6">
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Add Attendance</h2>
-                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input
-                                type="number"
-                                placeholder="Member ID"
-                                value={formData.memberId}
-                                onChange={(e) => {
-                                    const value = parseInt(e.target.value)
-                                    setFormData({
-                                        ...formData,
-                                        memberId: isNaN(value) ? 0 : value,
-                                    })
-                                }}
-                                className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                            />
-                            <input
-                                type="date"
-                                placeholder="Date"
-                                value={formData.date}
-                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                            />
-                            <input
-                                type="time"
-                                placeholder="Time In"
-                                value={formData.timeIn}
-                                onChange={(e) => setFormData({ ...formData, timeIn: e.target.value })}
-                                className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                            />
-                            <div className="md:col-span-2 flex justify-end gap-4">
+                {/* Camera Modal */}
+                {showCamera && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                        <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-6 rounded-2xl shadow-2xl w-full max-w-md sm:max-w-lg">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
+                                    Scan QR Code
+                                </h2>
                                 <button
-                                    type="button"
-                                    onClick={() => setShowForm(false)}
-                                    className="px-4 py-2 bg-gray-200 dark:bg-slate-600 rounded-lg"
+                                    onClick={() => setShowCamera(false)}
+                                    className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                                 >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="px-4 py-2 bg-orange-500 text-white rounded-lg disabled:opacity-50"
-                                >
-                                    {loading ? 'Saving...' : 'Save'}
+                                    <X className="w-6 h-6" />
                                 </button>
                             </div>
-                        </form>
+                            <div className="flex items-center justify-center py-12">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                                <span className="ml-3 text-slate-600 dark:text-slate-300">Opening camera...</span>
+                            </div>
+                        </div>
                     </div>
                 )}
 
-                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6">
+                {/* Filters Section */}
+                {showFilters && (
+                    <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="relative">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Search by Member
+                                </label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search by ID, name, NIC, or mobile..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Time Period
+                                </label>
+                                <select
+                                    value={timeFilter}
+                                    onChange={(e) => setTimeFilter(e.target.value as 'today' | 'thisWeek' | 'thisMonth' | 'all')}
+                                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                >
+                                    <option value="all">All Time</option>
+                                    <option value="today">Today</option>
+                                    <option value="thisWeek">This Week</option>
+                                    <option value="thisMonth">This Month</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    <Calendar className="inline w-4 h-4 mr-1" />
+                                    From Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={dateFilter.startDate}
+                                    onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    <Calendar className="inline w-4 h-4 mr-1" />
+                                    To Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={dateFilter.endDate}
+                                    onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+                        {hasActiveFilters && (
+                            <div className="flex justify-between items-center mt-4 pt-4 border-t dark:border-slate-700">
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  Showing {filteredAttendances.length} of {attendances.length} attendance records
+                </span>
+                                <button
+                                    onClick={clearFilters}
+                                    className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium"
+                                >
+                                    Clear All Filters
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Attendance Table */}
+                <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/50 overflow-hidden">
                     {loading ? (
-                        <div>Loading...</div>
+                        <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                            <span className="ml-3 text-slate-600 dark:text-slate-300">Loading attendance...</span>
+                        </div>
+                    ) : filteredAttendances.length === 0 ? (
+                        <div className="text-center py-12">
+                            <div className="text-slate-400 dark:text-slate-500 mb-4">
+                                {hasActiveFilters ? (
+                                    <Filter className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                ) : (
+                                    <Clock className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                )}
+                            </div>
+                            <h3 className="text-xl font-semibold text-slate-600 dark:text-slate-300 mb-2">
+                                {hasActiveFilters ? 'No attendance records match your filters' : 'No attendance records found'}
+                            </h3>
+                            <p className="text-slate-500 dark:text-slate-400 mb-4">
+                                {hasActiveFilters
+                                    ? 'Try adjusting your search criteria or clear filters'
+                                    : 'Scan a QR code, fingerprint, or face to record attendance'
+                                }
+                            </p>
+                            {hasActiveFilters && (
+                                <button
+                                    onClick={clearFilters}
+                                    className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium"
+                                >
+                                    Clear Filters
+                                </button>
+                            )}
+                        </div>
                     ) : (
-                        <table className="w-full">
-                            <thead>
-                            <tr className="text-left text-slate-600 dark:text-slate-400">
-                                <th>Member ID</th>
-                                <th>Date</th>
-                                <th>Time In</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {attendances.map((attendance) => (
-                                <tr key={attendance.attendanceId} className="border-t dark:border-slate-700">
-                                    <td className="py-2">{attendance.memberId}</td>
-                                    <td>{attendance.date}</td>
-                                    <td>{attendance.timeIn}</td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
+                        renderTable(filteredAttendances)
                     )}
                 </div>
             </div>

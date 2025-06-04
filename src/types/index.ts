@@ -1,17 +1,18 @@
 export interface Member {
     memberId?: string;
     name: string;
-    age?: number;
-    height?: number;
-    weight?: number;
+    age: number;
+    height: number;
+    weight: number;
     nicNumber: string;
     email: string;
-    address?: string;
-    qrCodeData?: string;
-    fingerprintData?: string;
-    faceImageData?: string;
-    membershipStartDate?: string;
+    address: string;
+    qrCodeData: string;
+    fingerprintData: string;
+    faceImageData: string;
+    membershipStartDate: string;
     activeStatus: boolean;
+    mobileNumber?: string;
 }
 
 export interface Attendance {
@@ -19,6 +20,7 @@ export interface Attendance {
     memberId: number
     date: string
     timeIn: string
+    timeOut: string;
 }
 
 export interface Notification {
