@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type {Member, Notification, Payment} from '../types'
+import type {Member, Notification, Payment, Attendance} from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 
@@ -51,25 +51,30 @@ export const activateMember = async (id: string) => {
 
 // Attendance API
 export const addAttendance = async (memberId: number) => {
-    const response = await api.post(`/v1/attendance/scan/${memberId}`)
-    return response.data
-}
+    const response = await api.post(`/v1/attendance/scan/${memberId}`);
+    return response.data;
+};
 
+export const updateAttendance = async (attendanceId: number, updates: Partial<Attendance>) => {
+    const response = await api.put(`/v1/attendance/${attendanceId}`, updates);
+    return response.data;
+};
 
 export const getAttendances = async () => {
-    const response = await api.get('/v1/attendance')
-    return response.data
-}
+    const response = await api.get('/v1/attendance');
+    return response.data;
+};
 
 export const getAttendanceById = async (id: number) => {
-    const response = await api.get(`/v1/attendance/${id}`)
-    return response.data
-}
+    const response = await api.get(`/v1/attendance/${id}`);
+    return response.data;
+};
 
 export const getAttendanceByMemberId = async (memberId: number) => {
-    const response = await api.get(`/v1/attendance/member/${memberId}`)
-    return response.data
-}
+    const response = await api.get(`/v1/attendance/member/${memberId}`);
+    return response.data;
+};
+
 
 // Notification API
 export const addNotification = async (notification: Notification) => {
