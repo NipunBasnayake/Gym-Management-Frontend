@@ -46,7 +46,7 @@ export default function Attendance() {
             return member;
         } catch (err) {
             console.error('Error fetching member data:', err);
-            throw new Error(`Member ID ${memberId} not found`);
+            throw new Error(`memberId ${memberId} not found`);
         }
     };
 
@@ -65,7 +65,7 @@ export default function Attendance() {
                             mobileNumber: member.mobileNumber
                         };
                     } catch (err) {
-                        console.log(err)
+                        console.log(err);
                         return {
                             ...att,
                             memberName: 'Unknown',
@@ -94,7 +94,7 @@ export default function Attendance() {
             setLoading(true);
 
             // Parse QR code
-            const memberIdMatch = data.match(/Member ID: (\d+)/);
+            const memberIdMatch = data.match(/memberId: (\d+)/);
             if (!memberIdMatch) {
                 throw new Error('Invalid QR code format');
             }
@@ -109,19 +109,27 @@ export default function Attendance() {
             // Check for existing attendance today
             const memberAttendances = await getAttendanceByMemberId(memberId);
             const todayAttendance = memberAttendances.find(
-                (att: Attendance) => att.date === date && !att.timeOut
+                (att: Attendance) => att.date === date
             );
 
-            if (todayAttendance) {
+            if (todayAttendance && todayAttendance.timeIn && todayAttendance.timeOut) {
+                // Both time-in and time-out are already set for today
+                toast.info(`Already time in and time out set for ${member.name}`, { position: 'top-right' });
+                setShowCamera(false);
+                return;
+            }
+
+            if (todayAttendance && todayAttendance.timeIn && !todayAttendance.timeOut) {
                 // Second scan: Update timeOut
                 try {
                     await addAttendance(memberId);
                     toast.success(`Time out recorded for ${member.name}`, { position: 'top-right' });
                 } catch (err) {
-                    console.log(err)
+                    console.error('Error recording time out:', err);
+                    toast.error('Failed to record time out', { position: 'top-right' });
                 }
             } else {
-                // First scan: Add new attendance with timeIn
+                // First scan or no attendance: Add new attendance with timeIn
                 await addAttendance(memberId);
                 toast.success(`Time in recorded for ${member.name}`, { position: 'top-right' });
             }
@@ -324,8 +332,8 @@ export default function Attendance() {
                             Filters
                             {hasActiveFilters && (
                                 <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
-                  Active
-                </span>
+                                    Active
+                                </span>
                             )}
                         </button>
                         <button
@@ -408,9 +416,9 @@ export default function Attendance() {
                         </div>
                         {hasActiveFilters && (
                             <div className="flex justify-between items-center mt-4 pt-4 border-t dark:border-slate-700">
-                <span className="text-sm text-slate-600 dark:text-slate-400">
-                  Showing {filteredAttendances.length} of {attendances.length} attendance records
-                </span>
+                                <span className="text-sm text-slate-600 dark:text-slate-400">
+                                    Showing {filteredAttendances.length} of {attendances.length} attendance records
+                                </span>
                                 <button
                                     onClick={clearFilters}
                                     className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium"
