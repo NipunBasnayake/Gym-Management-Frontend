@@ -1,17 +1,110 @@
-import { QrCode, Users, Calendar, CreditCard, BarChart, Dumbbell } from 'lucide-react'
-import Sidebar from '../components/Sidebar.tsx'
-import { useState } from 'react'
+import { QrCode, Users, Calendar, CreditCard, BarChart, Dumbbell } from 'lucide-react';
+import Sidebar from '../components/Sidebar.tsx';
+import QRScannerModal from '../components/QRScannerModal.tsx';
+import { useState } from 'react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { addAttendance, getAttendanceByMemberId, getMemberById } from '../services/api';
+import type { Member, Attendance } from '../types';
+import type {IDetectedBarcode} from "@yudiel/react-qr-scanner";
 
 export default function Dashboard() {
-    const [isScanning, setIsScanning] = useState(false)
+    const [isScanning, setIsScanning] = useState(false);
+    const [showCamera, setShowCamera] = useState(false);
+    const [memberCache, setMemberCache] = useState<Map<number, Member>>(new Map());
+
+    const fetchMemberData = async (memberId: number): Promise<Member> => {
+        if (memberCache.has(memberId)) {
+            return memberCache.get(memberId)!;
+        }
+        try {
+            const member = await getMemberById(memberId);
+            setMemberCache(prev => new Map(prev).set(memberId, member));
+            return member;
+        } catch (err) {
+            console.error('Error fetching member data:', err);
+            throw new Error(`memberId ${memberId} not found`);
+        }
+    };
+
+    const handleQRScan = async (detectedCodes: IDetectedBarcode[]) => {
+        if (!detectedCodes || detectedCodes.length === 0) return;
+
+        const data = detectedCodes[0].rawValue;
+        if (!data) return;
+
+        try {
+            setIsScanning(true);
+
+            // Parse QR code
+            const memberIdMatch = data.match(/memberId: (\d+)/);
+            if (!memberIdMatch) {
+                throw new Error('Invalid QR code format');
+            }
+            const memberId = parseInt(memberIdMatch[1]);
+
+            // Verify member exists
+            const member = await fetchMemberData(memberId);
+
+            const now = new Date();
+            const date = now.toISOString().split('T')[0];
+
+            // Check for existing attendance today
+            const memberAttendances = await getAttendanceByMemberId(memberId);
+            const todayAttendance = memberAttendances.find(
+                (att: Attendance) => att.date === date
+            );
+
+            if (todayAttendance && todayAttendance.timeIn && todayAttendance.timeOut) {
+                // Both time-in and time-out are already set for today
+                toast.info(`Already time in and time out set for ${member.name}`, { position: 'top-right' });
+                setShowCamera(false);
+                return;
+            }
+
+            if (todayAttendance && todayAttendance.timeIn && !todayAttendance.timeOut) {
+                // Second scan: Update timeOut
+                try {
+                    await addAttendance(memberId);
+                    toast.success(`Time out recorded for ${member.name}`, { position: 'top-right' });
+                } catch (err) {
+                    console.error('Error recording time out:', err);
+                    toast.error('Failed to record time out', { position: 'top-right' });
+                }
+            } else {
+                // First scan or no attendance: Add new attendance with timeIn
+                await addAttendance(memberId);
+                toast.success(`Time in recorded for ${member.name}`, { position: 'top-right' });
+            }
+
+            setShowCamera(false);
+        } catch (err) {
+            console.error('QR Scan Error:', err);
+            let errorMessage = 'Failed to process QR code. Please ensure the QR code is valid.';
+            if (err instanceof Error) {
+                errorMessage = err.message || errorMessage;
+            }
+            toast.error(errorMessage, { position: 'top-right' });
+        } finally {
+            setIsScanning(false);
+        }
+    };
 
     const handleScan = () => {
-        setIsScanning(true)
-        setTimeout(() => setIsScanning(false), 2000)
-    }
+        setShowCamera(true);
+    };
 
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+            <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                closeOnClick
+                pauseOnHover
+                theme="colored"
+                toastClassName="dark:bg-slate-800 dark:text-white"
+            />
             <Sidebar />
             <div className="flex-1 p-4 md:p-8 pb-20 md:pb-8">
                 <div className="mb-8">
@@ -23,7 +116,7 @@ export default function Dashboard() {
                         <div className="hidden md:block">
                             <div className="bg-white dark:bg-slate-800 rounded-lg px-4 py-2 shadow-sm border border-slate-200 dark:border-slate-700">
                                 <span className="text-sm text-slate-600 dark:text-slate-400">Today:</span>
-                                <span className="ml-2 font-semibold text-slate-800 dark:text-slate-200">June 3, 2025</span>
+                                <span className="ml-2 font-semibold text-slate-800 dark:text-slate-200">June 5, 2025</span>
                             </div>
                         </div>
                     </div>
@@ -70,7 +163,7 @@ export default function Dashboard() {
                                     <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
                                         <Calendar className="w-6 h-6 text-green-600 dark:text-green-400" />
                                     </div>
-                                    <span className="text-sm font-medium text-blue-600 bg-blue-100 dark:bg-blue-900 dark:text-blue-400 px-2 py-1 rounded-full">7 Active</span>
+                                    <span className="text-sm font-medium text-blue-600 bg-blue-100 dark:bg-blue-900 dark:text-blue-400 px-下来吧2 py-1 rounded-full">7 Active</span>
                                 </div>
                                 <h3 className="text-slate-600 dark:text-slate-400 font-medium mb-1">Today's Classes</h3>
                                 <p className="text-3xl font-bold text-slate-800 dark:text-slate-200 mb-1">24</p>
@@ -126,6 +219,13 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+
+            {showCamera && (
+                <QRScannerModal
+                    onScan={handleQRScan}
+                    onClose={() => setShowCamera(false)}
+                />
+            )}
         </div>
-    )
+    );
 }

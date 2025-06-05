@@ -1,150 +1,181 @@
-import  { useState, useEffect, useMemo } from 'react'
-import {Search, Filter, Calendar, Clock, UserCheck, X} from 'lucide-react'
-import { toast, ToastContainer } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
-import Sidebar from '../components/Sidebar.tsx'
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Filter, Calendar, Clock, UserCheck } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { type IDetectedBarcode } from '@yudiel/react-qr-scanner';
+import Sidebar from '../components/Sidebar.tsx';
+import QRScannerModal from '../components/QRScannerModal.tsx';
 import {
     addAttendance,
     getAttendances,
     getAttendanceByMemberId,
     getMemberById
-} from '../services/api'
-import type { Attendance, Member } from '../types'
+} from '../services/api';
+import type { Attendance, Member } from '../types';
 
 interface EnhancedAttendance extends Attendance {
-    memberName?: string
-    nicNumber?: string
-    mobileNumber?: string
+    memberName?: string;
+    nicNumber?: string;
+    mobileNumber?: string;
 }
 
 export default function Attendance() {
-    const [attendances, setAttendances] = useState<EnhancedAttendance[]>([])
-    const [memberCache, setMemberCache] = useState<Map<number, Member>>(new Map())
-    const [loading, setLoading] = useState(false)
-    const [showFilters, setShowFilters] = useState(false)
-    const [timeFilter, setTimeFilter] = useState<'today' | 'thisWeek' | 'thisMonth' | 'all'>('all')
-    const [searchTerm, setSearchTerm] = useState('')
+    const [attendances, setAttendances] = useState<EnhancedAttendance[]>([]);
+    const [memberCache, setMemberCache] = useState<Map<number, Member>>(new Map());
+    const [loading, setLoading] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
+    const [timeFilter, setTimeFilter] = useState<'today' | 'thisWeek' | 'thisMonth' | 'all'>('all');
+    const [searchTerm, setSearchTerm] = useState('');
     const [dateFilter, setDateFilter] = useState({
         startDate: '',
         endDate: ''
-    })
-    const [showCamera, setShowCamera] = useState(false)
+    });
+    const [showCamera, setShowCamera] = useState(false);
 
     useEffect(() => {
-        fetchAttendances()
-    }, [])
+        fetchAttendances();
+    }, []);
 
     const fetchMemberData = async (memberId: number): Promise<Member> => {
         if (memberCache.has(memberId)) {
-            return memberCache.get(memberId)!
+            return memberCache.get(memberId)!;
         }
         try {
-            const member = await getMemberById(memberId)
-            setMemberCache(prev => new Map(prev).set(memberId, member))
-            return member
+            const member = await getMemberById(memberId);
+            setMemberCache(prev => new Map(prev).set(memberId, member));
+            return member;
         } catch (err) {
-            console.log(err)
-            toast.error(`Failed to fetch member data for ID ${memberId}`, { position: 'top-right' })
-            return {memberId, name: 'Unknown', nicNumber: '-', mobileNumber: '-'} as unknown as Member
+            console.error('Error fetching member data:', err);
+            throw new Error(`memberId ${memberId} not found`);
         }
-    }
+    };
 
     const fetchAttendances = async () => {
-        setLoading(true)
+        setLoading(true);
         try {
-            const data = await getAttendances()
+            const data = await getAttendances();
             const enhancedData = await Promise.all(
                 data.map(async (att: Attendance) => {
-                    const member = await fetchMemberData(att.memberId)
-                    return {
-                        ...att,
-                        memberName: member.name,
-                        nicNumber: member.nicNumber,
-                        mobileNumber: member.mobileNumber
+                    try {
+                        const member = await fetchMemberData(att.memberId);
+                        return {
+                            ...att,
+                            memberName: member.name,
+                            nicNumber: member.nicNumber,
+                            mobileNumber: member.mobileNumber
+                        };
+                    } catch (err) {
+                        console.log(err);
+                        return {
+                            ...att,
+                            memberName: 'Unknown',
+                            nicNumber: '-',
+                            mobileNumber: '-'
+                        };
                     }
                 })
-            )
-            setAttendances(enhancedData)
+            );
+            setAttendances(enhancedData);
         } catch (err) {
-            console.log(err)
-            toast.error('Failed to fetch attendances', { position: 'top-right' })
+            console.error('Error fetching attendances:', err);
+            toast.error('Failed to fetch attendances', { position: 'top-right' });
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
-    const handleQRScan = async (scannedData: string) => {
+    const handleQRScan = async (detectedCodes: IDetectedBarcode[]) => {
+        if (!detectedCodes || detectedCodes.length === 0) return;
+
+        const data = detectedCodes[0].rawValue;
+        if (!data) return;
+
         try {
-            setLoading(true)
-            // Parse QR code data (assuming format: "memberId: <id>")
-            const memberIdMatch = scannedData.match(/memberId: (\d+)/)
+            setLoading(true);
+
+            // Parse QR code
+            const memberIdMatch = data.match(/memberId: (\d+)/);
             if (!memberIdMatch) {
-                throw new Error('Invalid QR code format')
+                throw new Error('Invalid QR code format');
             }
-            const memberId = parseInt(memberIdMatch[1])
+            const memberId = parseInt(memberIdMatch[1]);
 
-            const now = new Date()
-            const date = now.toISOString().split('T')[0]
+            // Verify member exists
+            const member = await fetchMemberData(memberId);
 
-            const memberAttendances = await getAttendanceByMemberId(memberId)
+            const now = new Date();
+            const date = now.toISOString().split('T')[0];
+
+            // Check for existing attendance today
+            const memberAttendances = await getAttendanceByMemberId(memberId);
             const todayAttendance = memberAttendances.find(
-                (att: Attendance) => att.date === date && !att.timeOut
-            )
+                (att: Attendance) => att.date === date
+            );
 
-            if (todayAttendance) {
-                // Note: You'll need to implement an updateAttendance endpoint
-                // await updateAttendance(todayAttendance.attendanceId, { timeOut: time })
-                toast.success('Attendance updated with time out', { position: 'top-right' })
-            } else {
-                await addAttendance(memberId)
-                toast.success('Attendance recorded', { position: 'top-right' })
+            if (todayAttendance && todayAttendance.timeIn && todayAttendance.timeOut) {
+                // Both time-in and time-out are already set for today
+                toast.info(`Already time in and time out set for ${member.name}`, { position: 'top-right' });
+                setShowCamera(false);
+                return;
             }
 
-            await fetchAttendances()
-            setShowCamera(false)
+            if (todayAttendance && todayAttendance.timeIn && !todayAttendance.timeOut) {
+                // Second scan: Update timeOut
+                try {
+                    await addAttendance(memberId);
+                    toast.success(`Time out recorded for ${member.name}`, { position: 'top-right' });
+                } catch (err) {
+                    console.error('Error recording time out:', err);
+                    toast.error('Failed to record time out', { position: 'top-right' });
+                }
+            } else {
+                // First scan or no attendance: Add new attendance with timeIn
+                await addAttendance(memberId);
+                toast.success(`Time in recorded for ${member.name}`, { position: 'top-right' });
+            }
+
+            await fetchAttendances();
+            setShowCamera(false);
         } catch (err) {
-            console.log(err)
-            toast.error('Failed to process attendance', { position: 'top-right' })
+            console.error('QR Scan Error:', err);
+            let errorMessage = 'Failed to process QR code. Please ensure the QR code is valid.';
+            if (err instanceof Error) {
+                errorMessage = err.message || errorMessage;
+            }
+            toast.error(errorMessage, { position: 'top-right' });
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
     const handleScanButtonClick = () => {
-        setShowCamera(true)
-        // Placeholder for QR code scanning
-        // In a real implementation, use a library like jsQR or react-qr-reader
-        setTimeout(() => {
-            // Simulate scanning a QR code with memberId
-            const simulatedQRData = `memberId: ${prompt('Enter Member ID for demo') || '0'}`;
-            handleQRScan(simulatedQRData)
-        }, 1000)
-    }
+        setShowCamera(true);
+    };
 
     const filteredAttendances = useMemo(() => {
-        let filtered = [...attendances]
+        let filtered = [...attendances];
 
         // Apply time-based filtering
-        const now = new Date()
+        const now = new Date();
         if (timeFilter === 'today') {
-            const today = now.toISOString().split('T')[0]
-            filtered = filtered.filter(att => att.date === today)
+            const today = now.toISOString().split('T')[0];
+            filtered = filtered.filter(att => att.date === today);
         } else if (timeFilter === 'thisWeek') {
-            const weekStart = new Date(now)
-            weekStart.setDate(now.getDate() - now.getDay())
-            const weekEnd = new Date(now)
-            weekEnd.setDate(now.getDate() - now.getDay() + 6)
+            const weekStart = new Date(now);
+            weekStart.setDate(now.getDate() - now.getDay());
+            const weekEnd = new Date(now);
+            weekEnd.setDate(now.getDate() - now.getDay() + 6);
             filtered = filtered.filter(att => {
-                const attDate = new Date(att.date)
-                return attDate >= weekStart && attDate <= weekEnd
-            })
+                const attDate = new Date(att.date);
+                return attDate >= weekStart && attDate <= weekEnd;
+            });
         } else if (timeFilter === 'thisMonth') {
-            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
             filtered = filtered.filter(att => {
-                const attDate = new Date(att.date)
-                return attDate >= monthStart && attDate <= monthEnd
-            })
+                const attDate = new Date(att.date);
+                return attDate >= monthStart && attDate <= monthEnd;
+            });
         }
 
         // Search filter
@@ -155,37 +186,37 @@ export default function Attendance() {
                     (att.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
                     (att.nicNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
                     (att.mobileNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
-            )
+            );
         }
 
         // Date range filter
         if (dateFilter.startDate || dateFilter.endDate) {
             filtered = filtered.filter((att) => {
-                const attDate = new Date(att.date)
-                const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null
-                const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null
+                const attDate = new Date(att.date);
+                const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
+                const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
 
                 if (startDate && endDate) {
-                    return attDate >= startDate && attDate <= endDate
+                    return attDate >= startDate && attDate <= endDate;
                 } else if (startDate) {
-                    return attDate >= startDate
+                    return attDate >= startDate;
                 } else if (endDate) {
-                    return attDate <= endDate
+                    return attDate <= endDate;
                 }
-                return true
-            })
+                return true;
+            });
         }
 
-        return filtered
-    }, [attendances, searchTerm, dateFilter, timeFilter])
+        return filtered;
+    }, [attendances, searchTerm, dateFilter, timeFilter]);
 
     const clearFilters = () => {
-        setSearchTerm('')
-        setDateFilter({ startDate: '', endDate: '' })
-        setTimeFilter('all')
-    }
+        setSearchTerm('');
+        setDateFilter({ startDate: '', endDate: '' });
+        setTimeFilter('all');
+    };
 
-    const hasActiveFilters = searchTerm || dateFilter.startDate || dateFilter.endDate || timeFilter !== 'all'
+    const hasActiveFilters = searchTerm || dateFilter.startDate || dateFilter.endDate || timeFilter !== 'all';
 
     const renderTable = (attendancesToShow: EnhancedAttendance[]) => (
         <div className="overflow-x-auto h-full">
@@ -249,7 +280,7 @@ export default function Attendance() {
                         </td>
                         <td className="py-4 px-6">
                             <div className="text-slate-600 dark:text-slate-300">
-                                {att.timeIn}
+                                {att.timeIn || '-'}
                             </div>
                         </td>
                         <td className="py-4 px-6">
@@ -262,7 +293,7 @@ export default function Attendance() {
                 </tbody>
             </table>
         </div>
-    )
+    );
 
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
@@ -301,8 +332,8 @@ export default function Attendance() {
                             Filters
                             {hasActiveFilters && (
                                 <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
-                  Active
-                </span>
+                                    Active
+                                </span>
                             )}
                         </button>
                         <button
@@ -316,27 +347,12 @@ export default function Attendance() {
                     </div>
                 </div>
 
-                {/* Camera Modal */}
+                {/* QR Scanner Modal */}
                 {showCamera && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                        <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-6 rounded-2xl shadow-2xl w-full max-w-md sm:max-w-lg">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
-                                    Scan QR Code
-                                </h2>
-                                <button
-                                    onClick={() => setShowCamera(false)}
-                                    className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                            <div className="flex items-center justify-center py-12">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                                <span className="ml-3 text-slate-600 dark:text-slate-300">Opening camera...</span>
-                            </div>
-                        </div>
-                    </div>
+                    <QRScannerModal
+                        onScan={handleQRScan}
+                        onClose={() => setShowCamera(false)}
+                    />
                 )}
 
                 {/* Filters Section */}
@@ -400,9 +416,9 @@ export default function Attendance() {
                         </div>
                         {hasActiveFilters && (
                             <div className="flex justify-between items-center mt-4 pt-4 border-t dark:border-slate-700">
-                <span className="text-sm text-slate-600 dark:text-slate-400">
-                  Showing {filteredAttendances.length} of {attendances.length} attendance records
-                </span>
+                                <span className="text-sm text-slate-600 dark:text-slate-400">
+                                    Showing {filteredAttendances.length} of {attendances.length} attendance records
+                                </span>
                                 <button
                                     onClick={clearFilters}
                                     className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium"
@@ -436,7 +452,7 @@ export default function Attendance() {
                             <p className="text-slate-500 dark:text-slate-400 mb-4">
                                 {hasActiveFilters
                                     ? 'Try adjusting your search criteria or clear filters'
-                                    : 'Scan a QR code, fingerprint, or face to record attendance'
+                                    : 'Scan a QR code to record attendance'
                                 }
                             </p>
                             {hasActiveFilters && (
@@ -454,5 +470,5 @@ export default function Attendance() {
                 </div>
             </div>
         </div>
-    )
+    );
 }

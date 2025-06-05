@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
+    "@yudiel/react-qr-scanner": "^2.3.1",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.9.0",
     "clsx": "^2.1.1",
