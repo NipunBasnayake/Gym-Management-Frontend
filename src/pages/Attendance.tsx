@@ -46,8 +46,7 @@ export default function Attendance() {
             return member;
         } catch (err) {
             console.error('Error fetching member data:', err);
-            toast.error(`Failed to fetch member data for ID ${memberId}`, { position: 'top-right' });
-            return { memberId, name: 'Unknown', nicNumber: '-', mobileNumber: '-' } as unknown as Member;
+            throw new Error(`Member ID ${memberId} not found`);
         }
     };
 
@@ -57,13 +56,23 @@ export default function Attendance() {
             const data = await getAttendances();
             const enhancedData = await Promise.all(
                 data.map(async (att: Attendance) => {
-                    const member = await fetchMemberData(att.memberId);
-                    return {
-                        ...att,
-                        memberName: member.name,
-                        nicNumber: member.nicNumber,
-                        mobileNumber: member.mobileNumber
-                    };
+                    try {
+                        const member = await fetchMemberData(att.memberId);
+                        return {
+                            ...att,
+                            memberName: member.name,
+                            nicNumber: member.nicNumber,
+                            mobileNumber: member.mobileNumber
+                        };
+                    } catch (err) {
+                        console.log(err)
+                        return {
+                            ...att,
+                            memberName: 'Unknown',
+                            nicNumber: '-',
+                            mobileNumber: '-'
+                        };
+                    }
                 })
             );
             setAttendances(enhancedData);
@@ -84,35 +93,37 @@ export default function Attendance() {
         try {
             setLoading(true);
 
-            console.log(data);
-
+            // Parse QR code
             const memberIdMatch = data.match(/Member ID: (\d+)/);
-
             if (!memberIdMatch) {
-                throw new Error('Cannot identify member id');
+                throw new Error('Invalid QR code format');
             }
             const memberId = parseInt(memberIdMatch[1]);
 
-            console.log('Scanned QR Code Details:', {
-                rawData: data,
-                memberId,
-                timestamp: new Date().toISOString(),
-            });
+            // Verify member exists
+            const member = await fetchMemberData(memberId);
 
             const now = new Date();
             const date = now.toISOString().split('T')[0];
 
+            // Check for existing attendance today
             const memberAttendances = await getAttendanceByMemberId(memberId);
             const todayAttendance = memberAttendances.find(
                 (att: Attendance) => att.date === date && !att.timeOut
             );
 
             if (todayAttendance) {
-                // await updateAttendance(todayAttendance.attendanceId, { timeOut: time });
-                toast.success('Attendance updated with time out', { position: 'top-right' });
+                // Second scan: Update timeOut
+                try {
+                    await addAttendance(memberId);
+                    toast.success(`Time out recorded for ${member.name}`, { position: 'top-right' });
+                } catch (err) {
+                    console.log(err)
+                }
             } else {
+                // First scan: Add new attendance with timeIn
                 await addAttendance(memberId);
-                toast.success('Attendance recorded', { position: 'top-right' });
+                toast.success(`Time in recorded for ${member.name}`, { position: 'top-right' });
             }
 
             await fetchAttendances();
@@ -261,7 +272,7 @@ export default function Attendance() {
                         </td>
                         <td className="py-4 px-6">
                             <div className="text-slate-600 dark:text-slate-300">
-                                {att.timeIn}
+                                {att.timeIn || '-'}
                             </div>
                         </td>
                         <td className="py-4 px-6">
@@ -433,7 +444,7 @@ export default function Attendance() {
                             <p className="text-slate-500 dark:text-slate-400 mb-4">
                                 {hasActiveFilters
                                     ? 'Try adjusting your search criteria or clear filters'
-                                    : 'Scan a QR code, fingerprint, or face to record attendance'
+                                    : 'Scan a QR code to record attendance'
                                 }
                             </p>
                             {hasActiveFilters && (
