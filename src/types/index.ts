@@ -24,7 +24,7 @@ export interface Attendance {
 }
 
 export interface Notification {
-    notificationId?: number
+    notificationId?: string
     message: string
     dateCreated: string
     isRead: boolean

@@ -1,21 +1,45 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import Sidebar from '../components/Sidebar.tsx'
-import { addPayment, getPayments, updatePayment, deletePayment } from '../services/api'
-import type {Payment} from '../types'
+import PaymentForm from '../components/PaymentForm.tsx'
+import { addPayment, getPayments, updatePayment, deletePayment, getMemberById } from '../services/api'
+import type { Payment, Member } from '../types'
+
+interface EnhancedPayment extends Payment {
+    memberName?: string
+}
 
 export default function Payments() {
-    const [payments, setPayments] = useState<Payment[]>([])
+    const [payments, setPayments] = useState<EnhancedPayment[]>([])
+    const [memberCache, setMemberCache] = useState<Map<number, Member>>(new Map())
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [showForm, setShowForm] = useState(false)
     const [formData, setFormData] = useState<Payment>({
         memberId: 0,
-        amount: 0,
-        paymentDate: '',
-        validUntilDate: '',
-        paymentStatus: '',
+        amount: 2000,
+        paymentDate: new Date().toISOString().split('T')[0],
+        validUntilDate: (() => {
+            const date = new Date()
+            date.setDate(date.getDate() + 30)
+            return date.toISOString().split('T')[0]
+        })(),
+        paymentStatus: 'Completed'
     })
+
+    const fetchMemberData = async (memberId: number): Promise<Member> => {
+        if (memberCache.has(memberId)) {
+            return memberCache.get(memberId)!
+        }
+        try {
+            const member = await getMemberById(memberId)
+            setMemberCache(prev => new Map(prev).set(memberId, member))
+            return member
+        } catch (err) {
+            console.error('Error fetching member data:', err)
+            throw new Error(`memberId ${memberId} not found`)
+        }
+    }
 
     useEffect(() => {
         (async () => {
@@ -23,12 +47,28 @@ export default function Payments() {
         })()
     }, [])
 
-
     const fetchPayments = async () => {
         setLoading(true)
         try {
             const data = await getPayments()
-            setPayments(data)
+            const enhancedData = await Promise.all(
+                data.map(async (payment: Payment) => {
+                    try {
+                        const member = await fetchMemberData(payment.memberId)
+                        return {
+                            ...payment,
+                            memberName: member.name
+                        }
+                    } catch (err) {
+                        console.log(err)
+                        return {
+                            ...payment,
+                            memberName: 'Unknown'
+                        }
+                    }
+                })
+            )
+            setPayments(enhancedData)
         } catch (err) {
             console.log(err)
             setError('Failed to fetch payments')
@@ -37,22 +77,27 @@ export default function Payments() {
         }
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!formData.memberId || !formData.amount || !formData.paymentStatus) {
-            setError('Member ID, amount, and payment status are required')
-            return
-        }
+    const handleSubmit = async (data: Payment) => {
         try {
             setLoading(true)
-            if (formData.paymentId) {
-                await updatePayment(formData.paymentId, formData)
+            if (data.paymentId) {
+                await updatePayment(data.paymentId, data)
             } else {
-                await addPayment(formData)
+                await addPayment(data)
             }
             setShowForm(false)
             await fetchPayments()
-            setFormData({ memberId: 0, amount: 0, paymentDate: '', validUntilDate: '', paymentStatus: '' })
+            setFormData({
+                memberId: 0,
+                amount: 2000,
+                paymentDate: new Date().toISOString().split('T')[0],
+                validUntilDate: (() => {
+                    const date = new Date()
+                    date.setDate(date.getDate() + 30)
+                    return date.toISOString().split('T')[0]
+                })(),
+                paymentStatus: 'Completed'
+            })
         } catch (err) {
             console.log(err)
             setError('Failed to save payment')
@@ -82,132 +127,156 @@ export default function Payments() {
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
             <Sidebar />
-            <div className="flex-1 p-4 md:p-8 pb-20 md:pb-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Payments</h1>
+            <div className="flex-1 p-4 sm:p-6 md:p-8">
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                    <div>
+                        <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white mb-2">
+                            Payments
+                        </h1>
+                        <p className="text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                            <span>{payments.length} payment records</span>
+                        </p>
+                    </div>
                     <button
                         onClick={() => setShowForm(true)}
-                        className="bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center"
+                        className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 py-3 rounded-xl flex items-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 dark:shadow-orange-500/25"
                     >
                         <Plus className="w-5 h-5 mr-2" />
                         Add Payment
                     </button>
                 </div>
 
-                {error && <div className="bg-red-100 text-red-600 p-3 rounded-lg mb-4">{error}</div>}
-
-                {showForm && (
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg mb-6">
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">
-                            {formData.paymentId ? 'Edit Payment' : 'Add Payment'}
-                        </h2>
-                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input
-                                type="number"
-                                placeholder="Member ID"
-                                value={formData.memberId}
-                                onChange={(e) => setFormData({ ...formData, memberId: parseInt(e.target.value) })}
-                                className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                            />
-                            <input
-                                type="number"
-                                placeholder="Amount"
-                                value={formData.amount}
-                                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
-                                className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                            />
-                            <input
-                                type="date"
-                                placeholder="Payment Date"
-                                value={formData.paymentDate}
-                                onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
-                                className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                            />
-                            <input
-                                type="date"
-                                placeholder="Valid Until"
-                                value={formData.validUntilDate}
-                                onChange={(e) => setFormData({ ...formData, validUntilDate: e.target.value })}
-                                className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                            />
-                            <select
-                                value={formData.paymentStatus}
-                                onChange={(e) => setFormData({ ...formData, paymentStatus: e.target.value })}
-                                className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200"
-                            >
-                                <option value="">Select Status</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Pending">Pending</option>
-                                <option value="Failed">Failed</option>
-                            </select>
-                            <div className="md:col-span-2 flex justify-end gap-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowForm(false)}
-                                    className="px-4 py-2 bg-gray-200 dark:bg-slate-600 rounded-lg"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="px-4 py-2 bg-orange-500 text-white rounded-lg disabled:opacity-50"
-                                >
-                                    {loading ? 'Saving...' : 'Save'}
-                                </button>
-                            </div>
-                        </form>
+                {/* Error Message */}
+                {error && (
+                    <div className="bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 p-4 rounded-2xl mb-6 border border-red-200 dark:border-red-800">
+                        {error}
                     </div>
                 )}
 
-                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6">
+                {/* Payment Form */}
+                {showForm && (
+                    <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
+                        <PaymentForm
+                            formData={formData}
+                            onSubmit={handleSubmit}
+                            onCancel={() => setShowForm(false)}
+                            loading={loading}
+                        />
+                    </div>
+                )}
+
+                {/* Payments Table */}
+                <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/50 overflow-hidden">
                     {loading ? (
-                        <div>Loading...</div>
+                        <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                            <span className="ml-3 text-slate-600 dark:text-slate-300">Loading payments...</span>
+                        </div>
+                    ) : payments.length === 0 ? (
+                        <div className="text-center py-12">
+                            <div className="text-slate-400 dark:text-slate-500 mb-4">
+                                <span className="w-16 h-16 mx-auto mb-4">💸</span>
+                            </div>
+                            <h3 className="text-xl font-semibold text-slate-600 dark:text-slate-300 mb-2">
+                                No payment records found
+                            </h3>
+                            <p className="text-slate-500 dark:text-slate-400 mb-4">
+                                Add a new payment to get started
+                            </p>
+                        </div>
                     ) : (
-                        <table className="w-full">
-                            <thead>
-                            <tr className="text-left text-slate-600 dark:text-slate-400">
-                                <th>Member ID</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {payments.map((payment) => (
-                                <tr key={payment.paymentId} className="border-t dark:border-slate-700">
-                                    <td className="py-2">{payment.memberId}</td>
-                                    <td>${payment.amount.toFixed(2)}</td>
-                                    <td>
-                      <span
-                          className={`px-2 py-1 rounded-full text-sm ${
-                              payment.paymentStatus === 'Completed'
-                                  ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400'
-                                  : 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400'
-                          }`}
-                      >
-                        {payment.paymentStatus}
-                      </span>
-                                    </td>
-                                    <td>
-                                        <button
-                                            onClick={() => handleEdit(payment)}
-                                            className="text-blue-600 dark:text-blue-400 mr-2"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(payment.paymentId!)}
-                                            className="text-red-600 dark:text-red-400"
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[640px]">
+                                <thead>
+                                <tr className="bg-slate-50 dark:bg-slate-700/50 border-b dark:border-slate-600">
+                                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                        Member
+                                    </th>
+                                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                        Amount
+                                    </th>
+                                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                        Payment Date
+                                    </th>
+                                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                        Valid Until
+                                    </th>
+                                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                        Payment Status
+                                    </th>
+                                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                        Actions
+                                    </th>
                                 </tr>
+                                </thead>
+
+                                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                                    {payments.map((payment, index) => (
+                                        <tr
+                                            key={payment.paymentId}
+                                            className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${
+                                                index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/50 dark:bg-slate-800/50'
+                                            }`}
+                                        >
+                                            <td className="py-4 px-6">
+                                                <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
+                                                    <div className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow">
+                                                        {payment.memberId.toString().slice(-2)}
+                                                    </div>
+                                                    <span>{`${payment.memberId} - ${payment.memberName || 'Unknown'}`}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                                                LKR {payment.amount.toFixed(2)}
+                                            </td>
+                                            <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                                                {new Date(payment.paymentDate).toLocaleDateString('en-US', {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                })}
+                                            </td>
+                                            <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                                                {new Date(payment.validUntilDate).toLocaleDateString('en-US', {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                })}
+                                            </td>
+                                            <td className="py-4 px-6">
+                                                <span
+                                                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                                        payment.paymentStatus === 'Completed'
+                                                            ? 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400'
+                                                            : payment.paymentStatus === 'Pending'
+                                                            ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400'
+                                                            : 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400'
+                                                    }`}
+                                                >
+                                                    {payment.paymentStatus}
+                                                </span>
+                                            </td>
+                                            <td className="py-4 px-6">
+                                                <button
+                                                    onClick={() => handleEdit(payment)}
+                                                    className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium mr-4"
+                                    >
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(payment.paymentId!)}
+                                    className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
+                                >
+                                    Delete
+                                </button>
+                                </td>
+                            </tr>
                             ))}
-                            </tbody>
+                        </tbody>
                         </table>
-                    )}
+                        </div>
+                        )}
                 </div>
             </div>
         </div>
