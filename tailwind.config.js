@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   content: [
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}',
@@ -6,7 +6,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#f97316', // Orange-500 for consistency
+        primary: '#f97316',
       },
     },
   },
