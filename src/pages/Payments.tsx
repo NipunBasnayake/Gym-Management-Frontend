@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import Sidebar from '../components/Sidebar.tsx'
 import PaymentForm from '../components/PaymentForm.tsx'
-import { addPayment, getPayments, updatePayment, deletePayment } from '../services/api'
-import type { Payment } from '../types'
+import { addPayment, getPayments, updatePayment, deletePayment, getMemberById } from '../services/api'
+import type { Payment, Member } from '../types'
+
+interface EnhancedPayment extends Payment {
+    memberName?: string
+}
 
 export default function Payments() {
-    const [payments, setPayments] = useState<Payment[]>([])
+    const [payments, setPayments] = useState<EnhancedPayment[]>([])
+    const [memberCache, setMemberCache] = useState<Map<number, Member>>(new Map())
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [showForm, setShowForm] = useState(false)
@@ -22,6 +27,20 @@ export default function Payments() {
         paymentStatus: 'Completed'
     })
 
+    const fetchMemberData = async (memberId: number): Promise<Member> => {
+        if (memberCache.has(memberId)) {
+            return memberCache.get(memberId)!
+        }
+        try {
+            const member = await getMemberById(memberId)
+            setMemberCache(prev => new Map(prev).set(memberId, member))
+            return member
+        } catch (err) {
+            console.error('Error fetching member data:', err)
+            throw new Error(`memberId ${memberId} not found`)
+        }
+    }
+
     useEffect(() => {
         (async () => {
             await fetchPayments()
@@ -32,7 +51,24 @@ export default function Payments() {
         setLoading(true)
         try {
             const data = await getPayments()
-            setPayments(data)
+            const enhancedData = await Promise.all(
+                data.map(async (payment: Payment) => {
+                    try {
+                        const member = await fetchMemberData(payment.memberId)
+                        return {
+                            ...payment,
+                            memberName: member.name
+                        }
+                    } catch (err) {
+                        console.log(err)
+                        return {
+                            ...payment,
+                            memberName: 'Unknown'
+                        }
+                    }
+                })
+            )
+            setPayments(enhancedData)
         } catch (err) {
             console.log(err)
             setError('Failed to fetch payments')
@@ -155,7 +191,7 @@ export default function Payments() {
                                 <thead>
                                 <tr className="bg-slate-50 dark:bg-slate-700/50 border-b dark:border-slate-600">
                                     <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                                        Member ID
+                                        Member
                                     </th>
                                     <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
                                         Amount
@@ -167,79 +203,80 @@ export default function Payments() {
                                         Valid Until
                                     </th>
                                     <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                                        Status
+                                        Payment Status
                                     </th>
                                     <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
                                         Actions
                                     </th>
                                 </tr>
                                 </thead>
+
                                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                                {payments.map((payment, index) => (
-                                    <tr
-                                        key={payment.paymentId}
-                                        className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${
-                                            index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/50 dark:bg-slate-800/50'
-                                        }`}
-                                    >
-                                        <td className="py-4 px-6">
-                                            <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
-                                                <div className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow">
-                                                    {payment.memberId.toString().slice(-2)}
+                                    {payments.map((payment, index) => (
+                                        <tr
+                                            key={payment.paymentId}
+                                            className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${
+                                                index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/50 dark:bg-slate-800/50'
+                                            }`}
+                                        >
+                                            <td className="py-4 px-6">
+                                                <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
+                                                    <div className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow">
+                                                        {payment.memberId.toString().slice(-2)}
+                                                    </div>
+                                                    <span>{`${payment.memberId} - ${payment.memberName || 'Unknown'}`}</span>
                                                 </div>
-                                                <span>{payment.memberId}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                                            LKR {payment.amount.toFixed(2)}
-                                        </td>
-                                        <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                                            {new Date(payment.paymentDate).toLocaleDateString('en-US', {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                            })}
-                                        </td>
-                                        <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                                            {new Date(payment.validUntilDate).toLocaleDateString('en-US', {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                            })}
-                                        </td>
-                                        <td className="py-4 px-6">
+                                            </td>
+                                            <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                                                LKR {payment.amount.toFixed(2)}
+                                            </td>
+                                            <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                                                {new Date(payment.paymentDate).toLocaleDateString('en-US', {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                })}
+                                            </td>
+                                            <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                                                {new Date(payment.validUntilDate).toLocaleDateString('en-US', {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                })}
+                                            </td>
+                                            <td className="py-4 px-6">
                                                 <span
                                                     className={`px-3 py-1 rounded-full text-sm font-medium ${
                                                         payment.paymentStatus === 'Completed'
                                                             ? 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400'
                                                             : payment.paymentStatus === 'Pending'
-                                                                ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400'
-                                                                : 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400'
+                                                            ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400'
+                                                            : 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400'
                                                     }`}
                                                 >
                                                     {payment.paymentStatus}
                                                 </span>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <button
-                                                onClick={() => handleEdit(payment)}
-                                                className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium mr-4"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(payment.paymentId!)}
-                                                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
-                                            >
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                </tbody>
-                            </table>
+                                            </td>
+                                            <td className="py-4 px-6">
+                                                <button
+                                                    onClick={() => handleEdit(payment)}
+                                                    className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium mr-4"
+                                    >
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(payment.paymentId!)}
+                                    className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
+                                >
+                                    Delete
+                                </button>
+                                </td>
+                            </tr>
+                            ))}
+                        </tbody>
+                        </table>
                         </div>
-                    )}
+                        )}
                 </div>
             </div>
         </div>
