@@ -31,7 +31,7 @@ export default function Payments() {
         paymentStatus: 'Completed'
     })
     const [filterMonth, setFilterMonth] = useState<string>(
-        new Date().toISOString().slice(0, 7) // Current YYYY-MM
+        new Date().toISOString().slice(0, 7)
     )
     const [searchDate, setSearchDate] = useState<string>('')
 
@@ -56,7 +56,6 @@ export default function Payments() {
     }, [])
 
     useEffect(() => {
-        // Filter payments based on selected month and search date
         const filtered = payments.filter(payment => {
             const paymentDate = new Date(payment.paymentDate)
             const matchesMonth = filterMonth
