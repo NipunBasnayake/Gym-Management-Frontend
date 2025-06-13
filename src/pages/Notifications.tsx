@@ -28,9 +28,14 @@ export default function Notifications() {
         setLoading(true)
         try {
             const data = await getNotifications()
-            setNotifications(data)
+            // Map API response to ensure isRead is used
+            const normalizedData = data.map((notif: any) => ({
+                ...notif,
+                isRead: notif.read ?? notif.isRead ?? false // Handle both 'read' and 'isRead'
+            }))
+            setNotifications(normalizedData)
         } catch (err) {
-            console.log(err)
+            console.error('Fetch notifications error:', err)
             toast.error('Failed to fetch notifications', { position: 'top-right' })
         } finally {
             setLoading(false)
@@ -45,16 +50,18 @@ export default function Notifications() {
         }
         try {
             setLoading(true)
-            await addNotification({
+            const newNotification = {
                 ...formData,
-                dateCreated: new Date().toISOString()
-            })
+                dateCreated: new Date().toISOString(),
+                isRead: false // Explicitly set to false for new notifications
+            }
+            await addNotification(newNotification)
             setShowModal(false)
             setFormData({ message: '', dateCreated: '', isRead: false, type: '' })
             await fetchNotifications()
             toast.success('Notification added successfully', { position: 'top-right' })
         } catch (err) {
-            console.log(err)
+            console.error('Add notification error:', err)
             toast.error('Failed to add notification', { position: 'top-right' })
         } finally {
             setLoading(false)
@@ -68,7 +75,7 @@ export default function Notifications() {
             await fetchNotifications()
             toast.success('Notification marked as read', { position: 'top-right' })
         } catch (err) {
-            console.log(err)
+            console.error('Mark as read error:', err)
             toast.error('Failed to mark notification as read', { position: 'top-right' })
         } finally {
             setLoading(false)
@@ -82,7 +89,7 @@ export default function Notifications() {
             await fetchNotifications()
             toast.success('Notification deleted successfully', { position: 'top-right' })
         } catch (err) {
-            console.log(err)
+            console.error('Delete notification error:', err)
             toast.error('Failed to delete notification', { position: 'top-right' })
         } finally {
             setLoading(false)
@@ -264,6 +271,7 @@ export default function Notifications() {
                                         required
                                     >
                                         <option value="">Select type</option>
+                                        <option value="Membership">Membership</option>
                                         <option value="info">Info</option>
                                         <option value="warning">Warning</option>
                                         <option value="error">Error</option>
