@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
-import { Edit2, Plus, Filter, Calendar, Search } from 'lucide-react'
+import {useState, useEffect} from 'react'
+import {Edit2, Plus, Filter, Calendar, Search} from 'lucide-react'
 import Sidebar from '../components/Sidebar.tsx'
 import PaymentForm from '../components/PaymentForm.tsx'
-import { addPayment, getPayments, updatePayment, getMemberById } from '../services/api'
-import type { Payment, Member } from '../types'
-import { toast, ToastContainer } from 'react-toastify'
+import {addPayment, getPayments, updatePayment, getMemberById} from '../services/api'
+import type {Payment, Member} from '../types'
+import {toast, ToastContainer} from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
 interface EnhancedPayment extends Payment {
@@ -93,7 +93,7 @@ export default function Payments() {
             setPayments(enhancedData)
         } catch (err) {
             console.log(err)
-            toast.error('Failed to fetch payments', { position: 'top-right' })
+            toast.error('Failed to fetch payments', {position: 'top-right'})
         } finally {
             setLoading(false)
         }
@@ -104,10 +104,10 @@ export default function Payments() {
             setLoading(true)
             if (data.paymentId) {
                 await updatePayment(data.paymentId, data)
-                toast.success('Payment updated successfully', { position: 'top-right' })
+                toast.success('Payment updated successfully', {position: 'top-right'})
             } else {
                 await addPayment(data)
-                toast.success('Payment added successfully', { position: 'top-right' })
+                toast.success('Payment added successfully', {position: 'top-right'})
             }
             setShowForm(false)
             await fetchPayments()
@@ -124,7 +124,7 @@ export default function Payments() {
             })
         } catch (err) {
             console.log(err)
-            toast.error('Failed to save payment', { position: 'top-right' })
+            toast.error('Failed to save payment', {position: 'top-right'})
         } finally {
             setLoading(false)
         }
@@ -143,7 +143,8 @@ export default function Payments() {
     const hasActiveFilters = filterMonth !== new Date().toISOString().slice(0, 7) || searchDate
 
     return (
-        <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+        <div
+            className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
             <ToastContainer
                 position="top-right"
                 autoClose={3000}
@@ -153,7 +154,7 @@ export default function Payments() {
                 theme="colored"
                 toastClassName="dark:bg-slate-800 dark:text-white"
             />
-            <Sidebar />
+            <Sidebar/>
             <div className="flex-1 p-4 sm:p-6 md:p-8">
                 {/* Header Section */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
@@ -174,7 +175,7 @@ export default function Payments() {
                                     : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                             }`}
                         >
-                            <Filter className="w-4 h-4 mr-2" />
+                            <Filter className="w-4 h-4 mr-2"/>
                             Filters
                             {hasActiveFilters && (
                                 <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
@@ -186,7 +187,7 @@ export default function Payments() {
                             onClick={() => setShowForm(true)}
                             className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 py-3 rounded-xl flex items-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 dark:shadow-orange-500/25"
                         >
-                            <Plus className="w-5 h-5 mr-2" />
+                            <Plus className="w-5 h-5 mr-2"/>
                             Add Payment
                         </button>
                     </div>
@@ -194,11 +195,12 @@ export default function Payments() {
 
                 {/* Filters Section */}
                 {showFilters && (
-                    <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
+                    <div
+                        className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                    <Calendar className="inline w-4 h-4 mr-1" />
+                                    <Calendar className="inline w-4 h-4 mr-1"/>
                                     Filter by Month
                                 </label>
                                 <input
@@ -210,11 +212,12 @@ export default function Payments() {
                             </div>
                             <div className="relative">
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                    <Calendar className="inline w-4 h-4 mr-1" />
+                                    <Calendar className="inline w-4 h-4 mr-1"/>
                                     Search by Date
                                 </label>
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                                    <Search
+                                        className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4"/>
                                     <input
                                         type="date"
                                         value={searchDate}
@@ -242,14 +245,16 @@ export default function Payments() {
 
                 {/* Error Message */}
                 {error && (
-                    <div className="bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 p-4 rounded-2xl mb-6 border border-red-200 dark:border-red-800">
+                    <div
+                        className="bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 p-4 rounded-2xl mb-6 border border-red-200 dark:border-red-800">
                         {error}
                     </div>
                 )}
 
                 {/* Payment Form */}
                 {showForm && (
-                    <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
+                    <div
+                        className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
                         <PaymentForm
                             formData={formData}
                             onSubmit={handleSubmit}
@@ -260,7 +265,8 @@ export default function Payments() {
                 )}
 
                 {/* Payments Table */}
-                <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/50 overflow-hidden">
+                <div
+                    className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/50 overflow-hidden">
                     {loading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
@@ -270,7 +276,7 @@ export default function Payments() {
                         <div className="text-center py-12">
                             <div className="text-slate-400 dark:text-slate-500 mb-4">
                                 {hasActiveFilters ? (
-                                    <Filter className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                    <Filter className="w-16 h-16 mx-auto mb-4 opacity-50"/>
                                 ) : (
                                     <span className="w-16 h-16 mx-auto mb-4">💸</span>
                                 )}
@@ -326,8 +332,10 @@ export default function Payments() {
                                         }`}
                                     >
                                         <td className="py-4 px-6">
-                                            <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
-                                                <div className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow">
+                                            <div
+                                                className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
+                                                <div
+                                                    className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow">
                                                     {payment.memberId.toString().slice(-2)}
                                                 </div>
                                                 <span>{`${payment.memberName || 'Unknown'}`}</span>
@@ -368,7 +376,7 @@ export default function Payments() {
                                                 onClick={() => handleEdit(payment)}
                                                 className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium mr-4"
                                             >
-                                                <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                                                <Edit2 className="w-4 h-4 sm:w-5 sm:h-5"/>
                                             </button>
                                         </td>
                                     </tr>
