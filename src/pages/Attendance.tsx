@@ -1,89 +1,41 @@
-import {useState, useEffect, useMemo} from 'react';
-import {Search, Filter, Calendar, Clock, UserCheck} from 'lucide-react';
-import {toast, ToastContainer} from 'react-toastify';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Filter, Calendar, Clock, UserCheck } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import {type IDetectedBarcode} from '@yudiel/react-qr-scanner';
+import { type IDetectedBarcode } from '@yudiel/react-qr-scanner';
 import Sidebar from '../components/Sidebar.tsx';
 import QRScannerModal from '../components/QRScannerModal.tsx';
-import {
-    addAttendance,
-    getAttendances,
-    getAttendanceByMemberId,
-    getMemberById
-} from '../services/api';
-import type {Attendance, Member} from '../types';
-
-interface EnhancedAttendance extends Attendance {
-    memberName?: string;
-    nicNumber?: string;
-    mobileNumber?: string;
-}
+import { addAttendance, getAttendances } from '../services/api';
+import type { Attendance } from '../types';
 
 export default function Attendance() {
-    const [attendances, setAttendances] = useState<EnhancedAttendance[]>([]);
-    const [memberCache, setMemberCache] = useState<Map<string, Member>>(new Map());
+    const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loading, setLoading] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [timeFilter, setTimeFilter] = useState<'today' | 'thisWeek' | 'thisMonth' | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [dateFilter, setDateFilter] = useState({
-        startDate: '',
-        endDate: ''
-    });
+    const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
     const [showCamera, setShowCamera] = useState(false);
 
     useEffect(() => {
         fetchAttendances();
     }, []);
 
-    const fetchMemberData = async (memberId: string): Promise<Member> => {
-        if (memberCache.has(memberId)) {
-            return memberCache.get(memberId)!;
-        }
-        try {
-            console.log(memberId);
-            const member = await getMemberById(memberId);
-
-            console.log('Fetched MongoDB ID:', member._id?.toString());
-
-            setMemberCache(prev => new Map(prev).set(memberId, member));
-            return member;
-        } catch (err) {
-            console.error('fetchMemberData: Error fetching member data:', err);
-            throw new Error(`Member ID ${memberId} not found`);
-        }
-
-    };
-
     const fetchAttendances = async () => {
         setLoading(true);
         try {
-            const data = await getAttendances();
-            const enhancedData = await Promise.all(
-                data.map(async (att: Attendance) => {
-                    try {
-                        const member = await fetchMemberData(att.memberId);
-                        return {
-                            ...att,
-                            memberName: member.name,
-                            nicNumber: member.nicNumber,
-                            mobileNumber: member.mobileNumber
-                        };
-                    } catch (err) {
-                        console.error('fetchAttendances: Error enhancing attendance:', err);
-                        return {
-                            ...att,
-                            memberName: 'Unknown',
-                            nicNumber: '-',
-                            mobileNumber: '-'
-                        };
-                    }
-                })
-            );
-            setAttendances(enhancedData);
-        } catch (err) {
-            console.error('fetchAttendances: Error fetching attendances:', err);
-            toast.error('Failed to fetch attendances', {position: 'top-right'});
+            const attendanceData = await getAttendances();
+            const formattedAttendances: Attendance[] = attendanceData.map((att: Attendance) => ({
+                ...att,
+                name: att.name || 'N/A',
+                mobileNumber: att.mobileNumber || 'N/A',
+                nicNumber: att.nicNumber || 'N/A',
+                timeOut: att.timeOut || 'N/A',
+            }));
+            setAttendances(formattedAttendances);
+        } catch (error) {
+            console.error('Error fetching attendances:', error);
+            toast.error('Failed to fetch attendance records', { position: 'top-right' });
         } finally {
             setLoading(false);
         }
@@ -91,68 +43,35 @@ export default function Attendance() {
 
     const handleQRScan = async (detectedCodes: IDetectedBarcode[]) => {
         if (!detectedCodes || detectedCodes.length === 0) {
+            toast.error('No QR code detected', { position: 'top-right' });
             return;
         }
 
         const data = detectedCodes[0].rawValue;
         if (!data) {
+            toast.error('Invalid QR code data', { position: 'top-right' });
             return;
         }
 
-        try {
-            setLoading(true);
-
-            // Parse QR code (looking for format like "memberId: 68584450bb4d7f2bba0be1b0")
-            const memberIdMatch = data.match(/memberId:\s*([a-f0-9]{24})/i);
-            if (!memberIdMatch) {
-                console.error('handleQRScan: Invalid QR code format:', data);
-                throw new Error('Invalid QR code format: memberId not found');
-            }
+        const memberIdMatch = data.match(/memberId:\s*([a-f0-9]{24})/i);
+        if (memberIdMatch) {
             const memberId = memberIdMatch[1];
-
-            // Verify member exists
-            const member = await fetchMemberData(memberId);
-
-            const now = new Date();
-            const date = now.toISOString().split('T')[0];
-
-            // Check for existing attendance today
-            const memberAttendances = await getAttendanceByMemberId(memberId);
-            const todayAttendance = memberAttendances.find(
-                (att: Attendance) => att.date === date
-            );
-
-            if (todayAttendance && todayAttendance.timeIn && todayAttendance.timeOut) {
-                toast.info(`Already time in and time out set for ${member.name}`, {position: 'top-right'});
-                setShowCamera(false);
-                return;
-            }
-
-            if (todayAttendance && todayAttendance.timeIn && !todayAttendance.timeOut) {
-                try {
-                    await addAttendance(memberId);
-                    toast.success(`Time out recorded for ${member.name}`, {position: 'top-right'});
-                } catch (err) {
-                    console.error('handleQRScan: Error recording time out:', err);
-                    toast.error('Failed to record time out', {position: 'top-right'});
-                }
-            } else {
+            try {
                 await addAttendance(memberId);
-                toast.success(`Time in recorded for ${member.name}`, {position: 'top-right'});
+                toast.success(`Attendance recorded for member ID ${memberId}`, { position: 'top-right' });
+                fetchAttendances();
+            } catch (error) {
+                if (error instanceof Error && error.message === 'Already marked in and out') {
+                    toast.info('Time in and out already recorded.', { position: 'top-right' });
+                } else {
+                    console.error('Unexpected error recording attendance:', error);
+                    toast.error('Something went wrong');
+                }
             }
-
-            await fetchAttendances();
-            setShowCamera(false);
-        } catch (err) {
-            console.error('handleQRScan: QR Scan Error:', err);
-            let errorMessage = 'Failed to process QR code. Please ensure the QR code is valid.';
-            if (err instanceof Error) {
-                errorMessage = err.message || errorMessage;
-            }
-            toast.error(errorMessage, {position: 'top-right'});
-        } finally {
-            setLoading(false);
+        } else {
+            toast.error('Member ID not found in QR code', { position: 'top-right' });
         }
+        setShowCamera(false);
     };
 
     const handleScanButtonClick = () => {
@@ -162,24 +81,23 @@ export default function Attendance() {
     const filteredAttendances = useMemo(() => {
         let filtered = [...attendances];
 
-        // Apply time-based filtering
         const now = new Date();
         if (timeFilter === 'today') {
             const today = now.toISOString().split('T')[0];
-            filtered = filtered.filter(att => att.date === today);
+            filtered = filtered.filter((att) => att.date === today);
         } else if (timeFilter === 'thisWeek') {
             const weekStart = new Date(now);
             weekStart.setDate(now.getDate() - now.getDay());
             const weekEnd = new Date(now);
             weekEnd.setDate(now.getDate() - now.getDay() + 6);
-            filtered = filtered.filter(att => {
+            filtered = filtered.filter((att) => {
                 const attDate = new Date(att.date);
                 return attDate >= weekStart && attDate <= weekEnd;
             });
         } else if (timeFilter === 'thisMonth') {
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
             const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            filtered = filtered.filter(att => {
+            filtered = filtered.filter((att) => {
                 const attDate = new Date(att.date);
                 return attDate >= monthStart && attDate <= monthEnd;
             });
@@ -189,10 +107,10 @@ export default function Attendance() {
         if (searchTerm) {
             filtered = filtered.filter(
                 (att) =>
-                    att.memberId.includes(searchTerm) ||
-                    (att.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-                    (att.nicNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-                    (att.mobileNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
+                    att.memberId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    att.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    (att.nicNumber || 'N/A').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    (att.mobileNumber || 'N/A').toLowerCase().includes(searchTerm.toLowerCase())
             );
         }
 
@@ -219,13 +137,13 @@ export default function Attendance() {
 
     const clearFilters = () => {
         setSearchTerm('');
-        setDateFilter({startDate: '', endDate: ''});
+        setDateFilter({ startDate: '', endDate: '' });
         setTimeFilter('all');
     };
 
     const hasActiveFilters = searchTerm || dateFilter.startDate || dateFilter.endDate || timeFilter !== 'all';
 
-    const renderTable = (attendancesToShow: EnhancedAttendance[]) => (
+    const renderTable = (attendancesToShow: Attendance[]) => (
         <div className="overflow-x-auto h-full">
             <table className="w-full min-w-[640px] h-full">
                 <thead>
@@ -260,21 +178,17 @@ export default function Attendance() {
                     >
                         <td className="py-4 px-6">
                             <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
-                                <div
-                                    className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow">
-                                    {att.memberId.slice(-2)}
-                                </div>
-                                <span>{att.memberName || `ID #${att.memberId}`}</span>
+                                {att.name || 'N/A'}
                             </div>
                         </td>
                         <td className="py-4 px-6 hidden sm:table-cell">
                             <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
-                                {att.nicNumber || '-'}
+                                {att.nicNumber || 'N/A'}
                             </div>
                         </td>
                         <td className="py-4 px-6 hidden sm:table-cell">
                             <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
-                                {att.mobileNumber || '-'}
+                                {att.mobileNumber || 'N/A'}
                             </div>
                         </td>
                         <td className="py-4 px-6">
@@ -288,12 +202,12 @@ export default function Attendance() {
                         </td>
                         <td className="py-4 px-6">
                             <div className="text-slate-600 dark:text-slate-300">
-                                {att.timeIn || '-'}
+                                {new Date(att.timeIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                             </div>
                         </td>
                         <td className="py-4 px-6">
                             <div className="text-slate-600 dark:text-slate-300">
-                                {att.timeOut || '-'}
+                                {att.timeOut && att.timeOut !== 'N/A' ? new Date(att.timeOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                             </div>
                         </td>
                     </tr>
@@ -304,8 +218,7 @@ export default function Attendance() {
     );
 
     return (
-        <div
-            className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+        <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
             <ToastContainer
                 position="top-right"
                 autoClose={3000}
@@ -315,16 +228,14 @@ export default function Attendance() {
                 theme="colored"
                 toastClassName="dark:bg-slate-800 dark:text-white"
             />
-            <Sidebar/>
+            <Sidebar />
             <div className="flex-1 p-4 sm:p-6 md:p-8">
                 {/* Header Section */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                     <div>
-                        <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white mb-2">
-                            Attendance
-                        </h1>
+                        <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white mb-2">Attendance</h1>
                         <p className="text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                            <Clock className="w-4 h-4"/>
+                            <Clock className="w-4 h-4" />
                             {filteredAttendances.length} of {attendances.length} attendance records shown
                         </p>
                     </div>
@@ -337,12 +248,10 @@ export default function Attendance() {
                                     : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                             }`}
                         >
-                            <Filter className="w-4 h-4 mr-2"/>
+                            <Filter className="w-4 h-4 mr-2" />
                             Filters
                             {hasActiveFilters && (
-                                <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
-                                    Active
-                                </span>
+                                <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">Active</span>
                             )}
                         </button>
                         <button
@@ -350,32 +259,25 @@ export default function Attendance() {
                             disabled={loading}
                             className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 py-3 rounded-xl flex items-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 dark:shadow-orange-500/25 disabled:opacity-50"
                         >
-                            <UserCheck className="w-5 h-5 mr-2"/>
+                            <UserCheck className="w-5 h-5 mr-2" />
                             Scan Attendance
                         </button>
                     </div>
                 </div>
 
                 {/* QR Scanner Modal */}
-                {showCamera && (
-                    <QRScannerModal
-                        onScan={handleQRScan}
-                        onClose={() => setShowCamera(false)}
-                    />
-                )}
+                {showCamera && <QRScannerModal onScan={handleQRScan} onClose={() => setShowCamera(false)} />}
 
                 {/* Filters Section */}
                 {showFilters && (
-                    <div
-                        className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
+                    <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="relative">
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                                     Search by Member
                                 </label>
                                 <div className="relative">
-                                    <Search
-                                        className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4"/>
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                                     <input
                                         type="text"
                                         placeholder="Search by ID, name, NIC, or mobile..."
@@ -402,25 +304,25 @@ export default function Attendance() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                    <Calendar className="inline w-4 h-4 mr-1"/>
+                                    <Calendar className="inline w-4 h-4 mr-1" />
                                     From Date
                                 </label>
                                 <input
                                     type="date"
                                     value={dateFilter.startDate}
-                                    onChange={(e) => setDateFilter((prev) => ({...prev, startDate: e.target.value}))}
+                                    onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
                                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                    <Calendar className="inline w-4 h-4 mr-1"/>
+                                    <Calendar className="inline w-4 h-4 mr-1" />
                                     To Date
                                 </label>
                                 <input
                                     type="date"
                                     value={dateFilter.endDate}
-                                    onChange={(e) => setDateFilter((prev) => ({...prev, endDate: e.target.value}))}
+                                    onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
                                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                             </div>
@@ -442,8 +344,7 @@ export default function Attendance() {
                 )}
 
                 {/* Attendance Table */}
-                <div
-                    className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/50 overflow-hidden">
+                <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/50 overflow-hidden">
                     {loading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
@@ -453,19 +354,16 @@ export default function Attendance() {
                         <div className="text-center py-12">
                             <div className="text-slate-400 dark:text-slate-500 mb-4">
                                 {hasActiveFilters ? (
-                                    <Filter className="w-16 h-16 mx-auto mb-4 opacity-50"/>
+                                    <Filter className="w-16 h-16 mx-auto mb-4 opacity-50" />
                                 ) : (
-                                    <Clock className="w-16 h-16 mx-auto mb-4 opacity-50"/>
+                                    <Clock className="w-16 h-16 mx-auto mb-4 opacity-50" />
                                 )}
                             </div>
                             <h3 className="text-xl font-semibold text-slate-600 dark:text-slate-300 mb-2">
                                 {hasActiveFilters ? 'No attendance records match your filters' : 'No attendance records found'}
                             </h3>
                             <p className="text-slate-500 dark:text-slate-400 mb-4">
-                                {hasActiveFilters
-                                    ? 'Try adjusting your search criteria or clear filters'
-                                    : 'Scan a QR code to record attendance'
-                                }
+                                {hasActiveFilters ? 'Try adjusting your search criteria or clear filters' : 'Scan a QR code to record attendance'}
                             </p>
                             {hasActiveFilters && (
                                 <button

@@ -1,22 +1,22 @@
 import axios from 'axios'
-import type {Member, Notification, Payment, Attendance} from '../types'
+import type {Member, Notification, Payment} from '../types'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3500/api';
 
 const api = axios.create({
     baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json',
     },
-})
+});
 
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('token');
     if (token) {
-        config.headers.Authorization = `Bearer ${token}`
+        config.headers.Authorization = `Bearer ${token}`;
     }
-    return config
-})
+    return config;
+});
 
 // Member API
 export const addMember = async (member: Member) => {
@@ -55,18 +55,8 @@ export const addAttendance = async (memberId: string) => {
     return response.data;
 };
 
-export const updateAttendance = async (attendanceId: string, updates: Partial<Attendance>) => {
-    const response = await api.put(`/v1/attendance/${attendanceId}`, updates);
-    return response.data;
-};
-
 export const getAttendances = async () => {
     const response = await api.get('/v1/attendance');
-    return response.data;
-};
-
-export const getAttendanceById = async (id: number) => {
-    const response = await api.get(`/v1/attendance/${id}`);
     return response.data;
 };
 
@@ -87,17 +77,12 @@ export const getNotifications = async () => {
     return response.data
 }
 
-export const getNotificationById = async (id: number) => {
-    const response = await api.get(`/v1/notification/${id}`)
-    return response.data
-}
-
-export const markNotificationAsRead = async (id: number) => {
+export const markNotificationAsRead = async (id: string) => {
     const response = await api.put(`/v1/notification/${id}/mark-as-read`)
     return response.data
 }
 
-export const deleteNotification = async (id: number) => {
+export const deleteNotification = async (id: string) => {
     const response = await api.delete(`/v1/notification/${id}`)
     return response.data
 }
@@ -113,17 +98,7 @@ export const getPayments = async () => {
     return response.data
 }
 
-export const getPaymentById = async (id: number) => {
-    const response = await api.get(`/v1/payment/${id}`)
-    return response.data
-}
-
 export const updatePayment = async (id: number, payment: Payment) => {
     const response = await api.put(`/v1/payment/${id}`, payment)
-    return response.data
-}
-
-export const deletePayment = async (id: number) => {
-    const response = await api.delete(`/v1/payment/${id}`)
     return response.data
 }

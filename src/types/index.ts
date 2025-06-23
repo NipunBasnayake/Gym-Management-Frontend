@@ -21,9 +21,13 @@ export interface Attendance {
     date: string;
     timeIn: string;
     timeOut?: string;
+    name: string;
+    mobileNumber?: string;
+    nicNumber?: string;
 }
 
 export interface Notification {
+    read: boolean;
     notificationId?: string
     message: string
     dateCreated: string
