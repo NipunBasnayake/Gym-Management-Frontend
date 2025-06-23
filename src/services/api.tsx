@@ -29,7 +29,7 @@ export const getMembers = async () => {
     return response.data
 }
 
-export const getMemberById = async (id: number) => {
+export const getMemberById = async (id: string) => {
     const response = await api.get(`/v1/member/${id}`)
     return response.data
 }
@@ -50,12 +50,12 @@ export const activateMember = async (id: string) => {
 }
 
 // Attendance API
-export const addAttendance = async (memberId: number) => {
+export const addAttendance = async (memberId: string) => {
     const response = await api.post(`/v1/attendance/scan/${memberId}`);
     return response.data;
 };
 
-export const updateAttendance = async (attendanceId: number, updates: Partial<Attendance>) => {
+export const updateAttendance = async (attendanceId: string, updates: Partial<Attendance>) => {
     const response = await api.put(`/v1/attendance/${attendanceId}`, updates);
     return response.data;
 };
@@ -70,7 +70,7 @@ export const getAttendanceById = async (id: number) => {
     return response.data;
 };
 
-export const getAttendanceByMemberId = async (memberId: number) => {
+export const getAttendanceByMemberId = async (memberId: string) => {
     const response = await api.get(`/v1/attendance/member/${memberId}`);
     return response.data;
 };
