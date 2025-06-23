@@ -2,25 +2,25 @@ export interface Member {
     memberId?: string;
     name: string;
     age: number;
-    height: number;
-    weight: number;
+    height?: number;
+    weight?: number;
     nicNumber: string;
     email: string;
-    address: string;
-    qrCodeData: string;
-    fingerprintData: string;
-    faceImageData: string;
+    address?: string;
+    qrCodeData?: string;
+    fingerprintData?: string;
+    faceImageData?: string;
     membershipStartDate: string;
     activeStatus: boolean;
     mobileNumber?: string;
 }
 
 export interface Attendance {
-    attendanceId?: number
-    memberId: number
-    date: string
-    timeIn: string
-    timeOut: string;
+    attendanceId?: string;
+    memberId: string;
+    date: string;
+    timeIn: string;
+    timeOut?: string;
 }
 
 export interface Notification {
@@ -32,7 +32,7 @@ export interface Notification {
 }
 
 export interface Payment {
-    paymentId?: number
+    paymentId?: string
     memberId: number
     amount: number
     paymentDate: string
