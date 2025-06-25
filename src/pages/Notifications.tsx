@@ -1,106 +1,76 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { Plus, X, Trash2, Bell, Check } from 'lucide-react'
-import { toast, ToastContainer } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
-import Sidebar from '../components/Sidebar.tsx'
-import { addNotification, getNotifications, markNotificationAsRead, deleteNotification } from '../services/api'
-import type { Notification } from '../types'
+import { useState, useEffect, useMemo } from 'react';
+import { Bell, Check, Trash2 } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import Sidebar from '../components/Sidebar.tsx';
+import { getNotifications, markNotificationAsRead, deleteNotification } from '../services/api';
+import type { Notification } from '../types';
 
 export default function Notifications() {
-    const [notifications, setNotifications] = useState<Notification[]>([])
-    const [loading, setLoading] = useState(false)
-    const [showModal, setShowModal] = useState(false)
-    const [formData, setFormData] = useState<Notification>({
-        message: '',
-        dateCreated: '',
-        isRead: false,
-        type: ''
-    })
-    const [activeTab, setActiveTab] = useState<'unread' | 'read'>('unread')
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState<'unread' | 'read'>('unread');
 
     useEffect(() => {
         (async () => {
-            await fetchNotifications()
-        })()
-    }, [])
+            await fetchNotifications();
+        })();
+    }, []);
 
     const fetchNotifications = async () => {
-        setLoading(true)
+        setLoading(true);
         try {
-            const data = await getNotifications()
-            // Map API response to ensure isRead is used
-            const normalizedData = data.map((notif: any) => ({
-                ...notif,
-                isRead: notif.read ?? notif.isRead ?? false // Handle both 'read' and 'isRead'
-            }))
-            setNotifications(normalizedData)
+            const data = await getNotifications();
+            const normalizedData = data
+                .map((notif: Notification) => ({
+                    ...notif,
+                    isRead: notif.read ?? notif.isRead ?? false,
+                }))
+                .sort((a: Notification, b: Notification) =>
+                    new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
+                );
+            setNotifications(normalizedData);
         } catch (err) {
-            console.error('Fetch notifications error:', err)
-            toast.error('Failed to fetch notifications', { position: 'top-right' })
+            console.error('Fetch notifications error:', err);
+            toast.error('Failed to fetch notifications', { position: 'top-right' });
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!formData.message || !formData.type) {
-            toast.error('Message and type are required', { position: 'top-right' })
-            return
-        }
+    const handleMarkAsRead = async (id: string) => {
         try {
-            setLoading(true)
-            const newNotification = {
-                ...formData,
-                dateCreated: new Date().toISOString(),
-                isRead: false // Explicitly set to false for new notifications
-            }
-            await addNotification(newNotification)
-            setShowModal(false)
-            setFormData({ message: '', dateCreated: '', isRead: false, type: '' })
-            await fetchNotifications()
-            toast.success('Notification added successfully', { position: 'top-right' })
+            setLoading(true);
+            await markNotificationAsRead(id);
+            await fetchNotifications();
+            toast.success('Notification marked as read', { position: 'top-right' });
         } catch (err) {
-            console.error('Add notification error:', err)
-            toast.error('Failed to add notification', { position: 'top-right' })
+            console.error('Mark as read error:', err);
+            toast.error('Failed to mark notification as read', { position: 'top-right' });
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
-    const handleMarkAsRead = async (id: number) => {
+    const handleDelete = async (id: string) => {
         try {
-            setLoading(true)
-            await markNotificationAsRead(id)
-            await fetchNotifications()
-            toast.success('Notification marked as read', { position: 'top-right' })
+            setLoading(true);
+            await deleteNotification(id);
+            await fetchNotifications();
+            toast.success('Notification deleted successfully', { position: 'top-right' });
         } catch (err) {
-            console.error('Mark as read error:', err)
-            toast.error('Failed to mark notification as read', { position: 'top-right' })
+            console.error('Delete notification error:', err);
+            toast.error('Failed to delete notification', { position: 'top-right' });
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
-
-    const handleDelete = async (id: number) => {
-        try {
-            setLoading(true)
-            await deleteNotification(id)
-            await fetchNotifications()
-            toast.success('Notification deleted successfully', { position: 'top-right' })
-        } catch (err) {
-            console.error('Delete notification error:', err)
-            toast.error('Failed to delete notification', { position: 'top-right' })
-        } finally {
-            setLoading(false)
-        }
-    }
+    };
 
     const filteredNotifications = useMemo(() => {
-        return notifications.filter(notification =>
+        return notifications.filter((notification) =>
             activeTab === 'unread' ? !notification.isRead : notification.isRead
-        )
-    }, [notifications, activeTab])
+        );
+    }, [notifications, activeTab]);
 
     const renderTable = (notificationsToShow: Notification[]) => (
         <div className="overflow-x-auto h-full">
@@ -150,26 +120,26 @@ export default function Notifications() {
                                         month: 'short',
                                         day: 'numeric',
                                         hour: '2-digit',
-                                        minute: '2-digit'
+                                        minute: '2-digit',
                                     })
                                     : '-'}
                             </div>
                         </td>
                         <td className="py-4 px-6">
-                                <span
-                                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                                        notification.isRead
-                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border border-green-200 dark:border-green-800'
-                                            : 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 border border-red-200 dark:border-red-800'
+                            <span
+                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                    notification.isRead
+                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border border-green-200 dark:border-green-800'
+                                        : 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 border border-red-200 dark:border-red-800'
+                                }`}
+                            >
+                                <div
+                                    className={`w-2 h-2 rounded-full mr-2 ${
+                                        notification.isRead ? 'bg-green-500 dark:bg-green-400' : 'bg-red-500 dark:bg-red-400'
                                     }`}
-                                >
-                                    <div
-                                        className={`w-2 h-2 rounded-full mr-2 ${
-                                            notification.isRead ? 'bg-green-500 dark:bg-green-400' : 'bg-red-500 dark:bg-red-400'
-                                        }`}
-                                    />
-                                    {notification.isRead ? 'Read' : 'Unread'}
-                                </span>
+                                />
+                                {notification.isRead ? 'Read' : 'Unread'}
+                            </span>
                         </td>
                         <td className="py-4 px-6">
                             <div className="flex items-center gap-2">
@@ -196,7 +166,7 @@ export default function Notifications() {
                 </tbody>
             </table>
         </div>
-    )
+    );
 
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
@@ -222,82 +192,7 @@ export default function Notifications() {
                             {filteredNotifications.length} of {notifications.length} notifications shown
                         </p>
                     </div>
-                    <button
-                        onClick={() => setShowModal(true)}
-                        className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 py-3 rounded-xl flex items-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 dark:shadow-orange-500/25"
-                    >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Add Notification
-                    </button>
                 </div>
-
-                {/* Modal */}
-                {showModal && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                        <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-6 rounded-2xl shadow-2xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
-                                    Add Notification
-                                </h2>
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                        Message
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="Enter notification message"
-                                        value={formData.message}
-                                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                        Type
-                                    </label>
-                                    <select
-                                        value={formData.type}
-                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                        required
-                                    >
-                                        <option value="">Select type</option>
-                                        <option value="Membership">Membership</option>
-                                        <option value="info">Info</option>
-                                        <option value="warning">Warning</option>
-                                        <option value="error">Error</option>
-                                        <option value="success">Success</option>
-                                    </select>
-                                </div>
-                                <div className="flex justify-end gap-4 mt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowModal(false)}
-                                        className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
-                                    >
-                                        {loading ? 'Saving...' : 'Save'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
 
                 {/* Tabs */}
                 <div className="mb-6">
@@ -352,5 +247,5 @@ export default function Notifications() {
                 </div>
             </div>
         </div>
-    )
+    );
 }
