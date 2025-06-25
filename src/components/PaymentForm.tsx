@@ -80,7 +80,6 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
             return
         }
 
-        setData({ ...data, memberId: numericId })
         setSearchTerm(`${member.memberId} - ${member.name}`)
         setShowDropdown(false)
     }
