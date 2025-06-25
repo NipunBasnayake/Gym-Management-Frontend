@@ -65,7 +65,6 @@ export const getAttendanceByMemberId = async (memberId: string) => {
     return response.data;
 };
 
-
 // Notification API
 export const addNotification = async (notification: Notification) => {
     const response = await api.post('/v1/notification', notification)
@@ -89,16 +88,16 @@ export const deleteNotification = async (id: string) => {
 
 // Payment API
 export const addPayment = async (payment: Payment) => {
-    const response = await api.post('/v1/payment', payment)
-    return response.data
-}
+    const response = await api.post('/v1/payment', payment);
+    return response.data;
+};
 
 export const getPayments = async () => {
-    const response = await api.get('/v1/payment')
-    return response.data
-}
+    const response = await api.get('/v1/payment');
+    return response.data;
+};
 
-export const updatePayment = async (id: number, payment: Payment) => {
-    const response = await api.put(`/v1/payment/${id}`, payment)
-    return response.data
-}
+export const updatePayment = async (id: string, payment: Payment) => {
+    const response = await api.put(`/v1/payment/${id}`, payment);
+    return response.data;
+};

@@ -21,9 +21,9 @@ export interface Attendance {
     date: string;
     timeIn: string;
     timeOut?: string;
-    name: string;
-    mobileNumber?: string;
+    name?: string;
     nicNumber?: string;
+    mobileNumber?: string;
 }
 
 export interface Notification {
@@ -36,10 +36,10 @@ export interface Notification {
 }
 
 export interface Payment {
-    paymentId?: string
-    memberId: number
-    amount: number
-    paymentDate: string
-    validUntilDate: string
-    paymentStatus: string
+    paymentId?: string;
+    memberId: string;
+    amount: number;
+    paymentDate: string;
+    validUntilDate: string;
+    paymentStatus: string;
 }
