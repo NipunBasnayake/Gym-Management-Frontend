@@ -103,12 +103,10 @@ export default function Attendance() {
             });
         }
 
-        // Search filter
         if (searchTerm) {
             filtered = filtered.filter(
                 (att) =>
                     att.memberId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    att.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     (att.nicNumber || 'N/A').toLowerCase().includes(searchTerm.toLowerCase()) ||
                     (att.mobileNumber || 'N/A').toLowerCase().includes(searchTerm.toLowerCase())
             );
