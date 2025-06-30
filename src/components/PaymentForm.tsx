@@ -117,7 +117,7 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
                                             onClick={() => handleMemberSelect(member)}
                                             className="p-2 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer"
                                         >
-                                            {member.memberId} - {member.name}
+                                            {member.name}
                                         </li>
                                     ))
                                 ) : (

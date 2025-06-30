@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Edit2, Plus, Filter, Calendar, Search, DollarSign } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Sidebar from '../components/Sidebar.tsx';
-import PaymentForm from '../components/PaymentForm.tsx';
-import { addPayment, getPayments, updatePayment, getMemberById } from '../services/api';
+import Sidebar from '../components/Sidebar';
+import PaymentForm from '../components/PaymentForm';
+import { addPayment, getPayments, updatePayment, getPaymentById, getMemberById } from '../services/api';
 import type { Payment } from '../types';
 
 interface EnhancedPayment extends Payment {
@@ -16,64 +16,67 @@ interface EnhancedPayment extends Payment {
 export default function Payments() {
     const [payments, setPayments] = useState<EnhancedPayment[]>([]);
     const [loading, setLoading] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(false); // Fixed: Added setShowFilters
     const [timeFilter, setTimeFilter] = useState<'today' | 'thisWeek' | 'thisMonth' | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
     const [showForm, setShowForm] = useState(false);
-    const [formData, setFormData] = useState<Payment>({
-        memberId: '',
-        amount: 2000,
-        paymentDate: new Date().toISOString().split('T')[0],
-        validUntilDate: (() => {
-            const date = new Date();
-            date.setDate(date.getDate() + 30);
-            return date.toISOString().split('T')[0];
-        })(),
-        paymentStatus: 'Completed',
+    const [formLoading, setFormLoading] = useState(false);
+    const [formData, setFormData] = useState<Payment>(() => {
+        const today = new Date().toISOString().split('T')[0];
+        const validUntil = new Date();
+        validUntil.setDate(validUntil.getDate() + 30);
+        return {
+            memberId: '',
+            amount: 2000,
+            paymentDate: today,
+            validUntilDate: validUntil.toISOString().split('T')[0],
+            paymentStatus: 'Completed',
+        };
     });
 
-    useEffect(() => {
-        fetchPayments();
-    }, []);
-
-    const fetchPayments = async () => {
+    const fetchPayments = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await getPayments();
-            const enhancedData = await Promise.all(
-                data.map(async (payment: Payment) => {
+            const paymentData = await getPayments();
+            // Map payments to include member details
+            const enhancedPayments = await Promise.all(
+                paymentData.map(async (payment: Payment) => {
                     try {
-                        console.log(payment.memberId)
                         const member = await getMemberById(payment.memberId);
                         return {
                             ...payment,
-                            memberName: member.name || 'N/A',
-                            nicNumber: member.nicNumber || 'N/A',
-                            mobileNumber: member.mobileNumber || 'N/A',
+                            memberName: member?.name || 'N/A',
+                            nicNumber: member?.nicNumber || 'N/A',
+                            mobileNumber: member?.mobileNumber || 'N/A',
                         };
-                    } catch (err) {
-                        console.error('Error fetching member data:', err);
+                    } catch (error) {
+                        console.error(`Error fetching member ${payment.memberId}:`, error);
                         return {
                             ...payment,
-                            memberName: 'Unknown',
+                            memberName: 'N/A',
                             nicNumber: 'N/A',
                             mobileNumber: 'N/A',
                         };
                     }
                 })
             );
-            setPayments(enhancedData);
+            setPayments(enhancedPayments);
         } catch (err) {
             console.error('Error fetching payments:', err);
+            toast.error('Failed to fetch payments', { position: 'top-right' });
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchPayments();
+    }, [fetchPayments]);
 
     const handleSubmit = async (data: Payment) => {
+        setFormLoading(true);
         try {
-            setLoading(true);
             if (data.paymentId) {
                 await updatePayment(data.paymentId, data);
                 toast.success('Payment updated successfully', { position: 'top-right' });
@@ -83,28 +86,48 @@ export default function Payments() {
             }
             setShowForm(false);
             await fetchPayments();
+            const validUntil = new Date();
+            validUntil.setDate(validUntil.getDate() + 30);
             setFormData({
                 memberId: '',
                 amount: 2000,
                 paymentDate: new Date().toISOString().split('T')[0],
-                validUntilDate: (() => {
-                    const date = new Date();
-                    date.setDate(date.getDate() + 30);
-                    return date.toISOString().split('T')[0];
-                })(),
+                validUntilDate: validUntil.toISOString().split('T')[0],
                 paymentStatus: 'Completed',
             });
         } catch (err) {
             console.error('Error saving payment:', err);
+            toast.error('Failed to save payment', { position: 'top-right' });
         } finally {
-            setLoading(false);
+            setFormLoading(false);
         }
     };
 
-    const handleEdit = (payment: Payment) => {
-        setFormData(payment);
-        setShowForm(true);
+    const handleEdit = async (payment: EnhancedPayment) => {
+        setFormLoading(true);
+        try {
+            const fullPayment = await getPaymentById(payment.paymentId!);
+            setFormData(fullPayment);
+            setShowForm(true);
+        } catch (err) {
+            console.error('Error fetching payment details:', err);
+            toast.error('Failed to load payment details', { position: 'top-right' });
+        } finally {
+            setFormLoading(false);
+        }
     };
+
+    const clearFilters = useCallback(() => {
+        setSearchTerm('');
+        setDateFilter({ startDate: '', endDate: '' });
+        setTimeFilter('all');
+        setShowFilters(false);
+    }, []);
+
+    const hasActiveFilters = useMemo(
+        () => searchTerm || dateFilter.startDate || dateFilter.endDate || timeFilter !== 'all',
+        [searchTerm, dateFilter, timeFilter]
+    );
 
     const filteredPayments = useMemo(() => {
         let filtered = [...payments];
@@ -116,8 +139,8 @@ export default function Payments() {
         } else if (timeFilter === 'thisWeek') {
             const weekStart = new Date(now);
             weekStart.setDate(now.getDate() - now.getDay());
-            const weekEnd = new Date(now);
-            weekEnd.setDate(now.getDate() - now.getDay() + 6);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
             filtered = filtered.filter((p) => {
                 const pDate = new Date(p.paymentDate);
                 return pDate >= weekStart && pDate <= weekEnd;
@@ -132,12 +155,13 @@ export default function Payments() {
         }
 
         if (searchTerm) {
+            const lowerSearch = searchTerm.toLowerCase();
             filtered = filtered.filter(
                 (p) =>
-                    p.memberId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    (p.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-                    (p.nicNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-                    (p.mobileNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
+                    p.memberId.toLowerCase().includes(lowerSearch) ||
+                    (p.memberName?.toLowerCase().includes(lowerSearch) ?? false) ||
+                    (p.nicNumber?.toLowerCase().includes(lowerSearch) ?? false) ||
+                    (p.mobileNumber?.toLowerCase().includes(lowerSearch) ?? false)
             );
         }
 
@@ -147,128 +171,114 @@ export default function Payments() {
                 const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
                 const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
 
-                if (startDate && endDate) {
-                    return pDate >= startDate && pDate <= endDate;
-                } else if (startDate) {
-                    return pDate >= startDate;
-                } else if (endDate) {
-                    return pDate <= endDate;
-                }
-                return true;
+                return (!startDate || pDate >= startDate) && (!endDate || pDate <= endDate);
             });
         }
 
         return filtered;
     }, [payments, searchTerm, dateFilter, timeFilter]);
 
-    const clearFilters = () => {
-        setSearchTerm('');
-        setDateFilter({ startDate: '', endDate: '' });
-        setTimeFilter('all');
-    };
-
-    const hasActiveFilters = searchTerm || dateFilter.startDate || dateFilter.endDate || timeFilter !== 'all';
-
-    const renderTable = (paymentsToShow: EnhancedPayment[]) => (
-        <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px]">
-                <thead>
-                <tr className="bg-slate-50 dark:bg-slate-700/50 border-b dark:border-slate-600">
-                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                        Member
-                    </th>
-                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider hidden sm:table-cell">
-                        NIC Number
-                    </th>
-                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider hidden sm:table-cell">
-                        Mobile Number
-                    </th>
-                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                        Amount
-                    </th>
-                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                        Payment Date
-                    </th>
-                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                        Valid Until
-                    </th>
-                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                        Payment Status
-                    </th>
-                    <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                        Actions
-                    </th>
-                </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {paymentsToShow.map((payment, index) => (
-                    <tr
-                        key={payment.paymentId}
-                        className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${
-                            index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/50 dark:bg-slate-800/50'
-                        }`}
-                    >
-                        <td className="py-4 px-6">
-                            <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
-                                <div className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow">
-                                    {payment.memberId.slice(-2)}
-                                </div>
-                                <span>{payment.memberName || 'N/A'}</span>
-                            </div>
-                        </td>
-                        <td className="py-4 px-6 hidden sm:table-cell">
-                            <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
-                                {payment.nicNumber}
-                            </div>
-                        </td>
-                        <td className="py-4 px-6 hidden sm:table-cell">
-                            <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
-                                {payment.mobileNumber}
-                            </div>
-                        </td>
-                        <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                            LKR {payment.amount.toFixed(2)}
-                        </td>
-                        <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                            {new Date(payment.paymentDate).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                            })}
-                        </td>
-                        <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                            {new Date(payment.validUntilDate).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                            })}
-                        </td>
-                        <td className="py-4 px-6">
-                <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        payment.paymentStatus === 'Completed'
-                            ? 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400'
-                            : payment.paymentStatus === 'Pending'
-                                ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400'
-                                : 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400'
-                    }`}
-                >
-                  {payment.paymentStatus}
-                </span>
-                        </td>
-                        <td className="py-4 px-6">
-                            <button
-                                onClick={() => handleEdit(payment)}
-                                className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium"
-                            >
-                                <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                            </button>
-                        </td>
+    const renderTable = useCallback(
+        (paymentsToShow: EnhancedPayment[]) => (
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px]">
+                    <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-700/50 border-b dark:border-slate-600">
+                        <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                            Member
+                        </th>
+                        <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider hidden sm:table-cell">
+                            NIC Number
+                        </th>
+                        <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider hidden sm:table-cell">
+                            Mobile Number
+                        </th>
+                        <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                            Amount
+                        </th>
+                        <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                            Payment Date
+                        </th>
+                        <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                            Valid Until
+                        </th>
+                        <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                            Payment Status
+                        </th>
+                        <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                            Actions
+                        </th>
                     </tr>
-                ))}
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {paymentsToShow.map((payment) => (
+                        <tr
+                            key={payment.paymentId}
+                            className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${
+                                paymentsToShow.indexOf(payment) % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/50 dark:bg-slate-800/50'
+                            }`}
+                        >
+                            <td className="py-4 px-6">
+                                <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
+                                    <span>{payment.memberName}</span>
+                                </div>
+                            </td>
+                            <td className="py-4 px-6 hidden sm:table-cell">
+                                <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
+                                    {payment.nicNumber}
+                                </div>
+                            </td>
+                            <td className="py-4 px-6 hidden sm:table-cell">
+                                <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
+                                    {payment.mobileNumber}
+                                </div>
+                            </td>
+                            <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                                ${payment.amount.toFixed(2)}
+                            </td>
+                            <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                                {new Date(payment.paymentDate).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                })}
+                            </td>
+                            <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                                {new Date(payment.validUntilDate).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                })}
+                            </td>
+                            <td className="py-4 px-6">
+                                <span
+                                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                        payment.paymentStatus === 'Completed'
+                                            ? 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400'
+                                            : payment.paymentStatus === 'Pending'
+                                                ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400'
+                                                : 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400'
+                                    }`}
+                                >
+                                    {payment.paymentStatus}
+                                </span>
+                            </td>
+                            <td className="py-4 px-6">
+                                <button
+                                    onClick={() => handleEdit(payment)}
+                                    disabled={formLoading}
+                                    className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium disabled:opacity-50"
+                                >
+                                    <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+            </div>
+        ),
+        [formLoading, handleEdit]
     );
 
     return (
@@ -310,7 +320,7 @@ export default function Payments() {
                         </button>
                         <button
                             onClick={() => setShowForm(true)}
-                            disabled={loading}
+                            disabled={loading || formLoading}
                             className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 py-3 rounded-xl flex items-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 dark:shadow-orange-500/25 disabled:opacity-50"
                         >
                             <Plus className="w-5 h-5 mr-2" />
@@ -325,7 +335,7 @@ export default function Payments() {
                         formData={formData}
                         onSubmit={handleSubmit}
                         onCancel={() => setShowForm(false)}
-                        loading={loading}
+                        loading={formLoading}
                     />
                 )}
 
@@ -390,9 +400,9 @@ export default function Payments() {
                         </div>
                         {hasActiveFilters && (
                             <div className="flex justify-between items-center mt-4 pt-4 border-t dark:border-slate-700">
-                <span className="text-sm text-slate-600 dark:text-slate-400">
-                  Showing {filteredPayments.length} of {payments.length} payment records
-                </span>
+                                <span className="text-sm text-slate-600 dark:text-slate-400">
+                                    Showing {filteredPayments.length} of {payments.length} payment records
+                                </span>
                                 <button
                                     onClick={clearFilters}
                                     className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium"
@@ -412,7 +422,7 @@ export default function Payments() {
                             <span className="ml-3 text-slate-600 dark:text-slate-300">Loading payments...</span>
                         </div>
                     ) : filteredPayments.length === 0 ? (
-                        <div className="text-center py-12">
+                        <div className="text-center py-10">
                             <div className="text-slate-400 dark:text-slate-500 mb-4">
                                 {hasActiveFilters ? (
                                     <Filter className="w-16 h-16 mx-auto mb-4 opacity-50" />
