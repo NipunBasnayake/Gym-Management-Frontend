@@ -1,7 +1,7 @@
 import axios from 'axios'
-import type {Member, Notification, Payment} from '../types'
+import type {Member, Payment} from '../types'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3500/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 const api = axios.create({
     baseURL: API_URL,
@@ -50,13 +50,18 @@ export const activateMember = async (id: string) => {
 }
 
 // Attendance API
-export const addAttendance = async (memberId: string) => {
-    const response = await api.post(`/v1/attendance/scan/${memberId}`);
+export const addAttendance = async (memberId: string, attendance: { timeIn: string; timeOut: null; status: string }) => {
+    const response = await api.post(`/v1/attendance/scan/${memberId}`, attendance);
     return response.data;
 };
 
 export const getAttendances = async () => {
     const response = await api.get('/v1/attendance');
+    return response.data;
+};
+
+export const getAttendanceById = async (id: string) => {
+    const response = await api.get(`/v1/attendance/${id}`);
     return response.data;
 };
 
@@ -66,13 +71,13 @@ export const getAttendanceByMemberId = async (memberId: string) => {
 };
 
 // Notification API
-export const addNotification = async (notification: Notification) => {
-    const response = await api.post('/v1/notification', notification)
+export const getNotifications = async () => {
+    const response = await api.get('/v1/notification')
     return response.data
 }
 
-export const getNotifications = async () => {
-    const response = await api.get('/v1/notification')
+export const getNotificationById = async (id: string) => {
+    const response = await api.get(`/v1/notification/${id}`)
     return response.data
 }
 
@@ -94,6 +99,11 @@ export const addPayment = async (payment: Payment) => {
 
 export const getPayments = async () => {
     const response = await api.get('/v1/payment');
+    return response.data;
+};
+
+export const getPaymentById = async (id: string | undefined) => {
+    const response = await api.get(`/v1/payment/${id}`);
     return response.data;
 };
 

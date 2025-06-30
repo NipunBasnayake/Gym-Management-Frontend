@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, Calendar, Clock, UserCheck } from 'lucide-react';
-import { toast, ToastContainer } from 'react-toastify';
+import {useState, useEffect, useMemo} from 'react';
+import {Search, Filter, Calendar, Clock, UserCheck} from 'lucide-react';
+import {toast, ToastContainer} from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { type IDetectedBarcode } from '@yudiel/react-qr-scanner';
+import {type IDetectedBarcode} from '@yudiel/react-qr-scanner';
 import Sidebar from '../components/Sidebar.tsx';
 import QRScannerModal from '../components/QRScannerModal.tsx';
-import { addAttendance, getAttendances } from '../services/api';
-import type { Attendance } from '../types';
+import {addAttendance, getAttendances} from '../services/api';
+import type {Attendance} from '../types';
 
 export default function Attendance() {
     const [attendances, setAttendances] = useState<Attendance[]>([]);
@@ -14,7 +14,7 @@ export default function Attendance() {
     const [showFilters, setShowFilters] = useState(false);
     const [timeFilter, setTimeFilter] = useState<'today' | 'thisWeek' | 'thisMonth' | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
+    const [dateFilter, setDateFilter] = useState({startDate: '', endDate: ''});
     const [showCamera, setShowCamera] = useState(false);
 
     useEffect(() => {
@@ -35,7 +35,7 @@ export default function Attendance() {
             setAttendances(formattedAttendances);
         } catch (error) {
             console.error('Error fetching attendances:', error);
-            toast.error('Failed to fetch attendance records', { position: 'top-right' });
+            toast.error('Failed to fetch attendance records', {position: 'top-right'});
         } finally {
             setLoading(false);
         }
@@ -43,13 +43,13 @@ export default function Attendance() {
 
     const handleQRScan = async (detectedCodes: IDetectedBarcode[]) => {
         if (!detectedCodes || detectedCodes.length === 0) {
-            toast.error('No QR code detected', { position: 'top-right' });
+            toast.error('No QR code detected', {position: 'top-right'});
             return;
         }
 
         const data = detectedCodes[0].rawValue;
         if (!data) {
-            toast.error('Invalid QR code data', { position: 'top-right' });
+            toast.error('Invalid QR code data', {position: 'top-right'});
             return;
         }
 
@@ -57,7 +57,11 @@ export default function Attendance() {
         if (memberIdMatch) {
             const memberId = memberIdMatch[1];
             try {
-                await addAttendance(memberId);
+                await addAttendance(memberId, {
+                    timeIn: new Date().toISOString(),
+                    timeOut: null,
+                    status: 'Present',
+                });
                 toast.success(`Attendance recorded for member ID ${memberId}`, { position: 'top-right' });
                 fetchAttendances();
             } catch (error) {
@@ -72,6 +76,7 @@ export default function Attendance() {
             toast.error('Member ID not found in QR code', { position: 'top-right' });
         }
         setShowCamera(false);
+
     };
 
     const handleScanButtonClick = () => {
@@ -135,7 +140,7 @@ export default function Attendance() {
 
     const clearFilters = () => {
         setSearchTerm('');
-        setDateFilter({ startDate: '', endDate: '' });
+        setDateFilter({startDate: '', endDate: ''});
         setTimeFilter('all');
     };
 
@@ -200,12 +205,15 @@ export default function Attendance() {
                         </td>
                         <td className="py-4 px-6">
                             <div className="text-slate-600 dark:text-slate-300">
-                                {new Date(att.timeIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(att.timeIn).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}
                             </div>
                         </td>
                         <td className="py-4 px-6">
                             <div className="text-slate-600 dark:text-slate-300">
-                                {att.timeOut && att.timeOut !== 'N/A' ? new Date(att.timeOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                {att.timeOut && att.timeOut !== 'N/A' ? new Date(att.timeOut).toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                }) : 'N/A'}
                             </div>
                         </td>
                     </tr>
@@ -216,7 +224,8 @@ export default function Attendance() {
     );
 
     return (
-        <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+        <div
+            className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
             <ToastContainer
                 position="top-right"
                 autoClose={3000}
@@ -226,14 +235,14 @@ export default function Attendance() {
                 theme="colored"
                 toastClassName="dark:bg-slate-800 dark:text-white"
             />
-            <Sidebar />
+            <Sidebar/>
             <div className="flex-1 p-4 sm:p-6 md:p-8">
                 {/* Header Section */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white mb-2">Attendance</h1>
                         <p className="text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
+                            <Clock className="w-4 h-4"/>
                             {filteredAttendances.length} of {attendances.length} attendance records shown
                         </p>
                     </div>
@@ -246,10 +255,11 @@ export default function Attendance() {
                                     : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                             }`}
                         >
-                            <Filter className="w-4 h-4 mr-2" />
+                            <Filter className="w-4 h-4 mr-2"/>
                             Filters
                             {hasActiveFilters && (
-                                <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">Active</span>
+                                <span
+                                    className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">Active</span>
                             )}
                         </button>
                         <button
@@ -257,25 +267,27 @@ export default function Attendance() {
                             disabled={loading}
                             className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 py-3 rounded-xl flex items-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 dark:shadow-orange-500/25 disabled:opacity-50"
                         >
-                            <UserCheck className="w-5 h-5 mr-2" />
+                            <UserCheck className="w-5 h-5 mr-2"/>
                             Scan Attendance
                         </button>
                     </div>
                 </div>
 
                 {/* QR Scanner Modal */}
-                {showCamera && <QRScannerModal onScan={handleQRScan} onClose={() => setShowCamera(false)} />}
+                {showCamera && <QRScannerModal onScan={handleQRScan} onClose={() => setShowCamera(false)}/>}
 
                 {/* Filters Section */}
                 {showFilters && (
-                    <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
+                    <div
+                        className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="relative">
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                                     Search by Member
                                 </label>
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                                    <Search
+                                        className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4"/>
                                     <input
                                         type="text"
                                         placeholder="Search by ID, name, NIC, or mobile..."
@@ -302,25 +314,25 @@ export default function Attendance() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                    <Calendar className="inline w-4 h-4 mr-1" />
+                                    <Calendar className="inline w-4 h-4 mr-1"/>
                                     From Date
                                 </label>
                                 <input
                                     type="date"
                                     value={dateFilter.startDate}
-                                    onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
+                                    onChange={(e) => setDateFilter((prev) => ({...prev, startDate: e.target.value}))}
                                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                    <Calendar className="inline w-4 h-4 mr-1" />
+                                    <Calendar className="inline w-4 h-4 mr-1"/>
                                     To Date
                                 </label>
                                 <input
                                     type="date"
                                     value={dateFilter.endDate}
-                                    onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
+                                    onChange={(e) => setDateFilter((prev) => ({...prev, endDate: e.target.value}))}
                                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                             </div>
@@ -342,7 +354,8 @@ export default function Attendance() {
                 )}
 
                 {/* Attendance Table */}
-                <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/50 overflow-hidden">
+                <div
+                    className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/50 overflow-hidden">
                     {loading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
@@ -352,9 +365,9 @@ export default function Attendance() {
                         <div className="text-center py-12">
                             <div className="text-slate-400 dark:text-slate-500 mb-4">
                                 {hasActiveFilters ? (
-                                    <Filter className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                    <Filter className="w-16 h-16 mx-auto mb-4 opacity-50"/>
                                 ) : (
-                                    <Clock className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                    <Clock className="w-16 h-16 mx-auto mb-4 opacity-50"/>
                                 )}
                             </div>
                             <h3 className="text-xl font-semibold text-slate-600 dark:text-slate-300 mb-2">
