@@ -1,89 +1,108 @@
-import React, { useState, useEffect } from 'react'
-import { toast } from 'react-toastify'
-import type { Payment, Member } from '../types'
-import { getMembers } from '../services/api'
+import React, { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-toastify';
+import type { Payment, Member } from '../types';
+import { getMembers } from '../services/api';
 
 interface PaymentFormProps {
-    formData: Payment
-    onSubmit: (data: Payment) => void
-    onCancel: () => void
-    loading: boolean
+    formData: Payment;
+    onSubmit: (data: Payment) => void;
+    onCancel: () => void;
+    loading: boolean;
 }
 
 export default function PaymentForm({ formData, onSubmit, onCancel, loading }: PaymentFormProps) {
-    const [data, setData] = useState<Payment>({ ...formData })
-    const [members, setMembers] = useState<Member[]>([])
-    const [searchTerm, setSearchTerm] = useState('')
-    const [showDropdown, setShowDropdown] = useState(false)
+    const [data, setData] = useState<Payment>({ ...formData });
+    const [members, setMembers] = useState<Member[]>([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [errors, setErrors] = useState<{ [key: string]: string }>({});
+    const [membersLoading, setMembersLoading] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Set default values for new payments
-    useEffect(() => {
-        if (!formData.paymentId) {
-            const today = new Date().toISOString().split('T')[0]
-            const validUntil = new Date()
-            validUntil.setDate(validUntil.getDate() + 30)
-            setData({
-                ...data,
-                amount: 2000,
-                paymentDate: today,
-                validUntilDate: validUntil.toISOString().split('T')[0],
-                paymentStatus: 'Completed'
-            })
-        }
-    }, [formData.paymentId])
-
-    // Fetch members for dropdown
+    // Fetch members and pre-populate searchTerm when editing
     useEffect(() => {
         (async () => {
+            setMembersLoading(true);
             try {
-                const response = await getMembers()
-                setMembers(response)
+                const response = await getMembers();
+                setMembers(response);
+                if (formData.paymentId && formData.memberId) {
+                    const member = response.find((m: { memberId: string; }) => m.memberId === formData.memberId);
+                    setSearchTerm(member?.name || '');
+                }
             } catch (err) {
-                console.error(err)
-                toast.error('Failed to fetch members', { position: 'top-right' })
+                console.error('Error fetching members:', err);
+                toast.error('Failed to fetch members', { position: 'top-right' });
+            } finally {
+                setMembersLoading(false);
             }
-        })()
-    }, [])
+        })();
+    }, [formData.paymentId, formData.memberId]);
 
     // Update validUntilDate when paymentDate changes
     useEffect(() => {
         if (data.paymentDate) {
-            const paymentDate = new Date(data.paymentDate)
-            const validUntil = new Date(paymentDate)
-            validUntil.setDate(paymentDate.getDate() + 30)
-            setData({ ...data, validUntilDate: validUntil.toISOString().split('T')[0] })
+            const paymentDate = new Date(data.paymentDate);
+            if (!isNaN(paymentDate.getTime())) {
+                const validUntil = new Date(paymentDate);
+                validUntil.setDate(paymentDate.getDate() + 30);
+                setData((prev) => ({ ...prev, validUntilDate: validUntil.toISOString().split('T')[0] }));
+            }
         }
-    }, [data.paymentDate])
+    }, [data.paymentDate]);
+
+    // Close dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setShowDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Validate form fields
+    const validateForm = () => {
+        const newErrors: { [key: string]: string } = {};
+        if (!data.memberId) {
+            newErrors.memberId = 'Please select a member';
+        }
+        if (!data.amount || data.amount <= 0) {
+            newErrors.amount = 'Amount must be greater than 0';
+        }
+        if (!data.paymentStatus) {
+            newErrors.paymentStatus = 'Please select a payment status';
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!data.memberId || !data.amount || !data.paymentStatus) {
-            toast.error('Member ID, amount, and payment status are required', { position: 'top-right' })
-            return
+        e.preventDefault();
+        if (!validateForm()) {
+            toast.error('Please fix the errors in the form', { position: 'top-right' });
+            return;
         }
-        onSubmit(data)
-    }
+        onSubmit(data);
+    };
 
-    const filteredMembers = members.filter(member =>
-        `${member.memberId} - ${member.name}`.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const filteredMembers = members.filter((member) =>
+        `${member.memberId} ${member.name} ${member.nicNumber || ''}`
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())
+    );
 
     const handleMemberSelect = (member: Member) => {
         if (!member.memberId) {
-            toast.error('Selected member has no ID')
-            return
+            toast.error('Selected member has no ID', { position: 'top-right' });
+            return;
         }
-
-        const numericId = parseInt(member.memberId)
-        if (isNaN(numericId)) {
-            toast.error('Member ID is not a valid number')
-            return
-        }
-
-        setSearchTerm(`${member.memberId} - ${member.name}`)
-        setShowDropdown(false)
-    }
-
+        setData({ ...data, memberId: member.memberId });
+        setSearchTerm(member.name);
+        setShowDropdown(false);
+        setErrors((prev) => ({ ...prev, memberId: '' }));
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -92,32 +111,39 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
                     {formData.paymentId ? 'Edit Payment' : 'Add Payment'}
                 </h2>
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
-                    <div className="flex flex-col gap-1 relative">
+                    <div className="flex flex-col gap-1 relative" ref={dropdownRef}>
                         <label htmlFor="member" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                             Member
                         </label>
                         <input
                             id="member"
                             type="text"
-                            placeholder="Search by ID or Name"
+                            placeholder={membersLoading ? 'Loading members...' : 'Search by ID, Name, or NIC'}
                             value={searchTerm}
                             onChange={(e) => {
-                                setSearchTerm(e.target.value)
-                                setShowDropdown(true)
+                                setSearchTerm(e.target.value);
+                                setShowDropdown(true);
+                                setErrors((prev) => ({ ...prev, memberId: '' }));
                             }}
                             onFocus={() => setShowDropdown(true)}
-                            className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full"
+                            disabled={membersLoading}
+                            className={`p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full ${
+                                errors.memberId ? 'border-red-500' : ''
+                            }`}
                         />
-                        {showDropdown && searchTerm && (
+                        {errors.memberId && (
+                            <p className="text-red-500 text-xs mt-1">{errors.memberId}</p>
+                        )}
+                        {showDropdown && !membersLoading && (
                             <ul className="absolute z-20 top-16 w-full bg-white dark:bg-slate-700 border rounded-lg max-h-60 overflow-y-auto">
                                 {filteredMembers.length > 0 ? (
-                                    filteredMembers.map(member => (
+                                    filteredMembers.map((member) => (
                                         <li
                                             key={member.memberId}
                                             onClick={() => handleMemberSelect(member)}
                                             className="p-2 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer"
                                         >
-                                            {member.name}
+                                            {member.memberId} - {member.name} {member.nicNumber ? `(${member.nicNumber})` : ''}
                                         </li>
                                     ))
                                 ) : (
@@ -135,11 +161,19 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
                             id="amount"
                             type="number"
                             step="0.01"
+                            min="0.01"
                             placeholder="Enter amount"
-                            value={data.amount}
-                            onChange={(e) => setData({ ...data, amount: parseFloat(e.target.value) })}
-                            className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full"
+                            value={data.amount || ''}
+                            onChange={(e) => {
+                                const value = e.target.value ? parseFloat(e.target.value) : 0;
+                                setData({ ...data, amount: value });
+                                setErrors((prev) => ({ ...prev, amount: '' }));
+                            }}
+                            className={`p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full ${
+                                errors.amount ? 'border-red-500' : ''
+                            }`}
                         />
+                        {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
                     </div>
 
                     <div className="flex flex-col gap-1">
@@ -150,13 +184,20 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
                             id="paymentDate"
                             type="date"
                             value={data.paymentDate}
-                            onChange={(e) => setData({ ...data, paymentDate: e.target.value })}
+                            onChange={(e) => {
+                                setData({ ...data, paymentDate: e.target.value });
+                                setErrors((prev) => ({ ...prev, paymentDate: '' }));
+                            }}
                             className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full"
                         />
                     </div>
 
                     <div className="flex flex-col gap-1">
-                        <label htmlFor="validUntilDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <label
+                            htmlFor="validUntilDate"
+                            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                            title="Automatically set to 30 days from Payment Date"
+                        >
                             Valid Until
                         </label>
                         <input
@@ -164,7 +205,7 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
                             type="date"
                             value={data.validUntilDate}
                             readOnly
-                            className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full opacity-75"
+                            className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full opacity-75 cursor-not-allowed"
                         />
                     </div>
 
@@ -175,27 +216,36 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
                         <select
                             id="paymentStatus"
                             value={data.paymentStatus}
-                            onChange={(e) => setData({ ...data, paymentStatus: e.target.value })}
-                            className="p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full"
+                            onChange={(e) => {
+                                setData({ ...data, paymentStatus: e.target.value });
+                                setErrors((prev) => ({ ...prev, paymentStatus: '' }));
+                            }}
+                            className={`p-2 border rounded-lg dark:bg-slate-700 dark:text-slate-200 w-full ${
+                                errors.paymentStatus ? 'border-red-500' : ''
+                            }`}
                         >
                             <option value="">Select Status</option>
                             <option value="Completed">Completed</option>
                             <option value="Pending">Pending</option>
                             <option value="Failed">Failed</option>
                         </select>
+                        {errors.paymentStatus && (
+                            <p className="text-red-500 text-xs mt-1">{errors.paymentStatus}</p>
+                        )}
                     </div>
 
                     <div className="flex justify-end gap-4">
                         <button
                             type="button"
                             onClick={onCancel}
-                            className="px-4 py-2 bg-gray-200 dark:bg-slate-600 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-500 transition-colors"
+                            disabled={loading}
+                            className="px-4 py-2 bg-gray-200 dark:bg-slate-600 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-500 transition-colors disabled:opacity-50"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || membersLoading}
                             className="px-4 py-2 bg-orange-500 text-white rounded-lg disabled:opacity-50 hover:bg-orange-600 transition-colors"
                         >
                             {loading ? 'Saving...' : 'Save'}
@@ -204,5 +254,5 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
                 </form>
             </div>
         </div>
-    )
+    );
 }

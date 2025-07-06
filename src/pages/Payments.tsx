@@ -4,7 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from '../components/Sidebar';
 import PaymentForm from '../components/PaymentForm';
-import { addPayment, getPayments, updatePayment, getPaymentById, getMemberById } from '../services/api';
+import { addPayment, getPayments, updatePayment, getMemberById } from '../services/api';
 import type { Payment } from '../types';
 
 interface EnhancedPayment extends Payment {
@@ -103,11 +103,11 @@ export default function Payments() {
         }
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const handleEdit = async (payment: EnhancedPayment) => {
         setFormLoading(true);
         try {
-            const fullPayment = await getPaymentById(payment.paymentId!);
-            setFormData(fullPayment);
+            setFormData(payment);
             setShowForm(true);
         } catch (err) {
             console.error('Error fetching payment details:', err);
@@ -234,7 +234,7 @@ export default function Payments() {
                                 </div>
                             </td>
                             <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                                ${payment.amount.toFixed(2)}
+                                LKR {payment.amount.toFixed(2)}
                             </td>
                             <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
                                 {new Date(payment.paymentDate).toLocaleDateString('en-US', {
