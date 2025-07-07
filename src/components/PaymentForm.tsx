@@ -106,8 +106,8 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg max-w-lg w-full">
-                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg max-w-lg w-full max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">
                     {formData.paymentId ? 'Edit Payment' : 'Add Payment'}
                 </h2>
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
@@ -135,7 +135,7 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
                             <p className="text-red-500 text-xs mt-1">{errors.memberId}</p>
                         )}
                         {showDropdown && !membersLoading && (
-                            <ul className="absolute z-20 top-16 w-full bg-white dark:bg-slate-700 border rounded-lg max-h-60 overflow-y-auto">
+                            <ul className="absolute z-20 top-16 w-full bg-white dark:bg-slate-700 border rounded-lg max-h-60 overflow-y-auto text-gray-300">
                                 {filteredMembers.length > 0 ? (
                                     filteredMembers.map((member) => (
                                         <li
@@ -143,7 +143,7 @@ export default function PaymentForm({ formData, onSubmit, onCancel, loading }: P
                                             onClick={() => handleMemberSelect(member)}
                                             className="p-2 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer"
                                         >
-                                            {member.memberId} - {member.name} {member.nicNumber ? `(${member.nicNumber})` : ''}
+                                            {member.name} {member.nicNumber ? `(${member.nicNumber})` : ''}
                                         </li>
                                     ))
                                 ) : (

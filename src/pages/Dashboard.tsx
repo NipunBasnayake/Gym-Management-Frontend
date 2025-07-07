@@ -7,7 +7,8 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { addAttendance, getAttendanceByMemberId, getMemberById, addMember } from '../services/api';
 import type { Member, Attendance } from '../types';
-import type { IDetectedBarcode } from "@yudiel/react-qr-scanner";
+import type { IDetectedBarcode } from '@yudiel/react-qr-scanner';
+import { AxiosError } from 'axios';
 
 export default function Dashboard() {
     const [isScanning, setIsScanning] = useState(false);
@@ -15,9 +16,9 @@ export default function Dashboard() {
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState<Member | null>(null);
     const [loading, setLoading] = useState(false);
-    const [memberCache, setMemberCache] = useState<Map<number, Member>>(new Map());
+    const [memberCache, setMemberCache] = useState<Map<string, Member>>(new Map());
 
-    const fetchMemberData = async (memberId: number): Promise<Member> => {
+    const fetchMemberData = async (memberId: string): Promise<Member> => {
         if (memberCache.has(memberId)) {
             return memberCache.get(memberId)!;
         }
@@ -27,66 +28,62 @@ export default function Dashboard() {
             return member;
         } catch (err) {
             console.error('Error fetching member data:', err);
-            throw new Error(`memberId ${memberId} not found`);
+            throw new AxiosError(`Member ID ${memberId} not found`);
         }
     };
 
     const handleQRScan = async (detectedCodes: IDetectedBarcode[]) => {
-        if (!detectedCodes || detectedCodes.length === 0) return;
+        if (!detectedCodes || detectedCodes.length === 0) {
+            toast.error('No QR code detected', { position: 'top-right' });
+            return;
+        }
 
         const data = detectedCodes[0].rawValue;
-        if (!data) return;
+        if (!data) {
+            toast.error('Invalid QR code data', { position: 'top-right' });
+            return;
+        }
 
         try {
             setIsScanning(true);
 
-            // Parse QR code
-            const memberIdMatch = data.match(/memberId: (\d+)/);
+            // Parse QR code for MongoDB ObjectId
+            const memberIdMatch = data.match(/memberId:\s*([a-f0-9]{24})/i);
             if (!memberIdMatch) {
-                throw new Error('Invalid QR code format');
+                throw new Error('Invalid QR code format. Expected memberId: [24-character ObjectId]');
             }
-            const memberId = parseInt(memberIdMatch[1]);
+            const memberId = memberIdMatch[1];
 
             // Verify member exists
             const member = await fetchMemberData(memberId);
 
-            const now = new Date();
-            const date = now.toISOString().split('T')[0];
+            // Prepare attendance data with exact type expected by addAttendance
+            const attendanceData: { timeIn: string; timeOut: null; status: string } = {
+                timeIn: new Date().toISOString(),
+                timeOut: null,
+                status: 'Present',
+            };
 
-            // Check for existing attendance today
+            // Call addAttendance to mark timeIn or timeOut
+            await addAttendance(memberId, attendanceData);
+
+            // Fetch updated attendance to determine if it was timeIn or timeOut
             const memberAttendances = await getAttendanceByMemberId(memberId);
+            const today = new Date().toISOString().split('T')[0];
             const todayAttendance = memberAttendances.find(
-                (att: Attendance) => att.date === date
+                (att: Attendance) => att.date === today
             );
 
-            if (todayAttendance && todayAttendance.timeIn && todayAttendance.timeOut) {
-                // Both time-in and time-out are already set for today
-                toast.info(`Already time in and time out set for ${member.name}`, { position: 'top-right' });
-                setShowCamera(false);
-                return;
-            }
-
-            if (todayAttendance && todayAttendance.timeIn && !todayAttendance.timeOut) {
-                // Second scan: Update timeOut
-                try {
-                    await addAttendance(memberId);
-                    toast.success(`Time out recorded for ${member.name}`, { position: 'top-right' });
-                } catch (err) {
-                    console.error('Error recording time out:', err);
-                    toast.error('Failed to record time out', { position: 'top-right' });
-                }
-            } else {
-                // First scan or no attendance: Add new attendance with timeIn
-                await addAttendance(memberId);
-                toast.success(`Time in recorded for ${member.name}`, { position: 'top-right' });
-            }
-
+            const action = todayAttendance?.timeOut ? 'out' : 'in';
+            toast.success(`Time ${action} recorded for ${member.name}`, { position: 'top-right' });
             setShowCamera(false);
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('QR Scan Error:', err);
             let errorMessage = 'Failed to process QR code. Please ensure the QR code is valid.';
-            if (err instanceof Error) {
-                errorMessage = err.message || errorMessage;
+            if (err instanceof AxiosError && err.response?.data?.message) {
+                errorMessage = err.response.data.message;
+            } else if (err instanceof Error) {
+                errorMessage = err.message;
             }
             toast.error(errorMessage, { position: 'top-right' });
         } finally {
@@ -153,15 +150,14 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-slate-100 mb-2">Dashboard</h1>
-                            <p className="text-slate-600 dark:text-slate-400">Welcome back! Here's what's happening at
-                                your gym today.</p>
+                            <p className="text-slate-600 dark:text-slate-400">Welcome back! Here's what's happening at your gym today.</p>
                         </div>
                         <div className="hidden md:block">
                             <div
                                 className="bg-white dark:bg-slate-800 rounded-lg px-4 py-2 shadow-sm border border-slate-200 dark:border-slate-700">
                                 <span className="text-sm text-slate-600 dark:text-slate-400">Today:</span>
                                 <span
-                                    className="ml-2 font-semibold text-slate-800 dark:text-slate-200">June 5, 2025</span>
+                                    className="ml-2 font-semibold text-slate-800 dark:text-slate-200">July 7, 2025</span>
                             </div>
                         </div>
                     </div>
@@ -172,16 +168,15 @@ export default function Dashboard() {
                         <div
                             className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-xl p-6 md:p-8 text-white h-full min-h-[350px] flex flex-col items-center justify-center relative overflow-hidden">
                             <div
-                                className="absolute top-0 right-0 w-32 h-32 bg-white-bezel rounded-full -translate-y-16 translate-x-16"></div>
+                                className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
                             <div
-                                className="absolute bottom-0 left-0 w-24 h-24 bg-white-bezel rounded-full translate-y-12 -translate-x-12"></div>
+                                className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
                             <div className="relative z-10 text-center">
-                                <div className="p-4 rounded-full bg-white-bezel backdrop-blur-sm mb-6 mx-auto w-fit">
+                                <div className="p-4 rounded-full bg-white/20 backdrop-blur-sm mb-6 mx-auto w-fit">
                                     <QrCode className="w-12 h-12 md:w-16 md:h-16" />
                                 </div>
                                 <h2 className="text-xl md:text-2xl font-bold mb-3">Quick Check-In</h2>
-                                <p className="text-orange-100 mb-6 text-sm md:text-base">Scan QR code for instant
-                                    attendance tracking</p>
+                                <p className="text-orange-100 mb-6 text-sm md:text-base">Scan QR code for instant attendance tracking</p>
                                 <button
                                     onClick={handleScan}
                                     disabled={isScanning}
