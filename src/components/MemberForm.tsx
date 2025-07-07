@@ -1,6 +1,6 @@
 import React from 'react'
-import {Fingerprint, Camera, QrCode, Trash2} from 'lucide-react'
-import {toast} from 'react-toastify'
+// import {Fingerprint, Camera, QrCode, Trash2} from 'lucide-react'
+// import {toast} from 'react-toastify'
 import type {Member} from '../types'
 
 interface MemberFormProps {
@@ -19,41 +19,41 @@ export default function MemberForm({formData, onSubmit, onCancel, loading}: Memb
     }
 
     // Method to handle fingerprint data upload/capture
-    const handleFingerprintCapture = () => {
-        // Simulate fingerprint capture - replace with actual fingerprint SDK integration
-        const mockFingerprintData = `fp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        setData({...data, fingerprintData: mockFingerprintData})
-        toast.success('Fingerprint captured successfully!', {position: 'top-right'})
-    }
+    // const handleFingerprintCapture = () => {
+    //     // Simulate fingerprint capture - replace with actual fingerprint SDK integration
+    //     const mockFingerprintData = `fp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    //     setData({...data, fingerprintData: mockFingerprintData})
+    //     toast.success('Fingerprint captured successfully!', {position: 'top-right'})
+    // }
 
     // Method to handle face ID capture
-    const handleFaceCapture = async () => {
-        try {
-            // Simulate camera access for face capture - replace with actual face recognition SDK
-            const stream = await navigator.mediaDevices.getUserMedia({video: true})
-            const mockFaceData = `face_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
-            // Stop the camera stream after simulation
-            stream.getTracks().forEach(track => track.stop())
-
-            setData({...data, faceImageData: mockFaceData})
-            toast.success('Face ID captured successfully!', {position: 'top-right'})
-        } catch (error) {
-            console.log(error)
-            toast.error('Camera access denied or not available', {position: 'top-right'})
-        }
-    }
+    // const handleFaceCapture = async () => {
+    //     try {
+    //         // Simulate camera access for face capture - replace with actual face recognition SDK
+    //         const stream = await navigator.mediaDevices.getUserMedia({video: true})
+    //         const mockFaceData = `face_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    //
+    //         // Stop the camera stream after simulation
+    //         stream.getTracks().forEach(track => track.stop())
+    //
+    //         setData({...data, faceImageData: mockFaceData})
+    //         toast.success('Face ID captured successfully!', {position: 'top-right'})
+    //     } catch (error) {
+    //         console.log(error)
+    //         toast.error('Camera access denied or not available', {position: 'top-right'})
+    //     }
+    // }
 
     // Method to remove biometric data
-    const removeBiometricData = (type: 'fingerprint' | 'face') => {
-        if (type === 'fingerprint') {
-            setData({...data, fingerprintData: ''})
-            toast.info('Fingerprint data removed', {position: 'top-right'})
-        } else {
-            setData({...data, faceImageData: ''})
-            toast.info('Face ID data removed', {position: 'top-right'})
-        }
-    }
+    // const removeBiometricData = (type: 'fingerprint' | 'face') => {
+    //     if (type === 'fingerprint') {
+    //         setData({...data, fingerprintData: ''})
+    //         toast.info('Fingerprint data removed', {position: 'top-right'})
+    //     } else {
+    //         setData({...data, faceImageData: ''})
+    //         toast.info('Face ID data removed', {position: 'top-right'})
+    //     }
+    // }
 
     return (
         <div className="max-w-4xl mx-auto p-4">
@@ -171,82 +171,82 @@ export default function MemberForm({formData, onSubmit, onCancel, loading}: Memb
                 </div>
 
                 {/* Biometric Data Section */}
-                <div className="border-t border-gray-200 dark:border-gray-600 pt-4 mt-4 md:col-span-2">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                        <QrCode className="w-5 h-5"/>
-                        Biometric & QR Data
-                    </h3>
+                {/*<div className="border-t border-gray-200 dark:border-gray-600 pt-4 mt-4 md:col-span-2">*/}
+                {/*    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">*/}
+                {/*        <QrCode className="w-5 h-5"/>*/}
+                {/*        Biometric & QR Data*/}
+                {/*    </h3>*/}
 
-                    {/* Fingerprint Section */}
-                    <div className="flex flex-col gap-3 mb-4 p-3 bg-gray-50 dark:bg-slate-600 rounded-lg">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Fingerprint: {data.fingerprintData ? 'Captured' : 'Not Captured'}
-                            </span>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={handleFingerprintCapture}
-                                    className="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
-                                >
-                                    <Fingerprint className="w-4 h-4"/>
-                                    {data.fingerprintData ? 'Recapture' : 'Capture'}
-                                </button>
-                                {data.fingerprintData && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeBiometricData('fingerprint')}
-                                        className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
-                                    >
-                                        <Trash2 className="w-4 h-4"/>
-                                        Remove
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                        {data.fingerprintData && (
-                            <div
-                                className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-white dark:bg-slate-700 p-2 rounded border">
-                                ID: {data.fingerprintData}
-                            </div>
-                        )}
-                    </div>
+                {/*    /!* Fingerprint Section *!/*/}
+                {/*    <div className="flex flex-col gap-3 mb-4 p-3 bg-gray-50 dark:bg-slate-600 rounded-lg">*/}
+                {/*        <div className="flex items-center justify-between">*/}
+                {/*            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">*/}
+                {/*                Fingerprint: {data.fingerprintData ? 'Captured' : 'Not Captured'}*/}
+                {/*            </span>*/}
+                {/*            <div className="flex gap-2">*/}
+                {/*                <button*/}
+                {/*                    type="button"*/}
+                {/*                    onClick={handleFingerprintCapture}*/}
+                {/*                    className="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"*/}
+                {/*                >*/}
+                {/*                    <Fingerprint className="w-4 h-4"/>*/}
+                {/*                    {data.fingerprintData ? 'Recapture' : 'Capture'}*/}
+                {/*                </button>*/}
+                {/*                {data.fingerprintData && (*/}
+                {/*                    <button*/}
+                {/*                        type="button"*/}
+                {/*                        onClick={() => removeBiometricData('fingerprint')}*/}
+                {/*                        className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"*/}
+                {/*                    >*/}
+                {/*                        <Trash2 className="w-4 h-4"/>*/}
+                {/*                        Remove*/}
+                {/*                    </button>*/}
+                {/*                )}*/}
+                {/*            </div>*/}
+                {/*        </div>*/}
+                {/*        {data.fingerprintData && (*/}
+                {/*            <div*/}
+                {/*                className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-white dark:bg-slate-700 p-2 rounded border">*/}
+                {/*                ID: {data.fingerprintData}*/}
+                {/*            </div>*/}
+                {/*        )}*/}
+                {/*    </div>*/}
 
-                    {/* Face ID Section */}
-                    <div className="flex flex-col gap-3 mb-4 p-3 bg-gray-50 dark:bg-slate-600 rounded-lg">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Face ID: {data.faceImageData ? 'Captured' : 'Not Captured'}
-                            </span>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={handleFaceCapture}
-                                    className="px-3 py-1 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2"
-                                >
-                                    <Camera className="w-4 h-4"/>
-                                    {data.faceImageData ? 'Recapture' : 'Capture'}
-                                </button>
-                                {data.faceImageData && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeBiometricData('face')}
-                                        className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
-                                    >
-                                        <Trash2 className="w-4 h-4"/>
-                                        Remove
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                        {data.faceImageData && (
-                            <div
-                                className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-white dark:bg-slate-700 p-2 rounded border">
-                                ID: {data.faceImageData}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                {/*    /!* Face ID Section *!/*/}
+                {/*    <div className="flex flex-col gap-3 mb-4 p-3 bg-gray-50 dark:bg-slate-600 rounded-lg">*/}
+                {/*        <div className="flex items-center justify-between">*/}
+                {/*            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">*/}
+                {/*                Face ID: {data.faceImageData ? 'Captured' : 'Not Captured'}*/}
+                {/*            </span>*/}
+                {/*            <div className="flex gap-2">*/}
+                {/*                <button*/}
+                {/*                    type="button"*/}
+                {/*                    onClick={handleFaceCapture}*/}
+                {/*                    className="px-3 py-1 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2"*/}
+                {/*                >*/}
+                {/*                    <Camera className="w-4 h-4"/>*/}
+                {/*                    {data.faceImageData ? 'Recapture' : 'Capture'}*/}
+                {/*                </button>*/}
+                {/*                {data.faceImageData && (*/}
+                {/*                    <button*/}
+                {/*                        type="button"*/}
+                {/*                        onClick={() => removeBiometricData('face')}*/}
+                {/*                        className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"*/}
+                {/*                    >*/}
+                {/*                        <Trash2 className="w-4 h-4"/>*/}
+                {/*                        Remove*/}
+                {/*                    </button>*/}
+                {/*                )}*/}
+                {/*            </div>*/}
+                {/*        </div>*/}
+                {/*        {data.faceImageData && (*/}
+                {/*            <div*/}
+                {/*                className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-white dark:bg-slate-700 p-2 rounded border">*/}
+                {/*                ID: {data.faceImageData}*/}
+                {/*            </div>*/}
+                {/*        )}*/}
+                {/*    </div>*/}
+                {/*</div>*/}
 
                 <div className="flex justify-end gap-4 md:col-span-2">
                     <button
