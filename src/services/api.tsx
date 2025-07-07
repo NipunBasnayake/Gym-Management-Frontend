@@ -49,8 +49,17 @@ export const activateMember = async (id: string) => {
     return response.data
 }
 
+export const sendQRCodeEmail = async (member: { name: string; email: string; qrCode: string; }) => {
+    const response = await api.post('/v1/member/send-qr', member);
+    return response.data;
+};
+
 // Attendance API
-export const addAttendance = async (memberId: string, attendance: { timeIn: string; timeOut: null; status: string }) => {
+export const addAttendance = async (memberId: string, attendance: {
+    timeIn: string;
+    timeOut: null;
+    status: string
+}) => {
     const response = await api.post(`/v1/attendance/scan/${memberId}`, attendance);
     return response.data;
 };

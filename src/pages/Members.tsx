@@ -3,7 +3,7 @@ import { Plus, Edit2, X, Search, Filter, Calendar, Users, MoreVertical, UserChec
 import { toast, ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import Sidebar from '../components/Sidebar.tsx'
-import { addMember, getMembers, updateMember, deactivateMember, activateMember } from '../services/api'
+import {addMember, getMembers, updateMember, deactivateMember, activateMember, sendQRCodeEmail} from '../services/api'
 import type { Member } from '../types'
 import MemberForm from "../components/MemberForm.tsx"
 import QRCode from 'qrcode'
@@ -97,30 +97,32 @@ export default function Members() {
 
     const handleSendQRToEmail = async (member: Member) => {
         if (!member.email) {
-            toast.error('Email address not found for this member', { position: 'top-right' })
-            return
+            toast.error('Email address not found for this member', { position: 'top-right' });
+            return;
         }
 
         try {
-            setLoading(true)
-            const qrData = `memberId: ${member.memberId}\nnic: ${member.nicNumber}\nmobileNumber: ${member.mobileNumber}\nemail: ${member.email}`
-            const qrCodeDataURL = await QRCode.toDataURL(qrData)
-            const link = document.createElement('a')
-            link.href = qrCodeDataURL
-            link.download = `QRCode_${member.name}.png`
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            await new Promise(resolve => setTimeout(resolve, 2000))
-            toast.success(`QR code sent to ${member.email}`, { position: 'top-right' })
+            setLoading(true);
+
+            const qrData = `memberId: ${member.memberId}\nnic: ${member.nicNumber}\nmobileNumber: ${member.mobileNumber}\nemail: ${member.email}`;
+            const qrCodeDataURL = await QRCode.toDataURL(qrData);
+
+            await sendQRCodeEmail({
+                name: member.name,
+                email: member.email,
+                qrCode: qrCodeDataURL,
+            });
+
+            toast.success(`QR code sent to ${member.email}`, { position: 'top-right' });
         } catch (error) {
-            console.error(error)
-            toast.error('Failed to send QR code email', { position: 'top-right' })
+            console.error(error);
+            toast.error('Failed to send QR code email', { position: 'top-right' });
         } finally {
-            setLoading(false)
-            setOpenDropdown(null)
+            setLoading(false);
+            setOpenDropdown(null);
         }
-    }
+    };
+
 
     const filteredMembers = useMemo(() => {
         let filtered = [...members]
