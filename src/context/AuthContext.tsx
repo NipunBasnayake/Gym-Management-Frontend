@@ -1,7 +1,7 @@
 import { createContext, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login, logout } from '../services/auth'
-import axios from "axios"
+import axios from 'axios'
 
 interface AuthContextType {
     isAuthenticated: boolean
@@ -26,7 +26,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
             setIsAuthenticated(true)
         }
+
+        // 🔁 Axios interceptor for expired token handling
+        const responseInterceptor = axios.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                if (error.response?.status === 401) {
+                    // Token is invalid or expired
+                    await logoutUser()
+                }
+                return Promise.reject(error)
+            }
+        )
+
         setLoading(false)
+
+        return () => {
+            axios.interceptors.response.eject(responseInterceptor)
+        }
     }, [])
 
     const loginUser = async (email: string, password: string) => {
@@ -53,13 +70,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             localStorage.removeItem('token')
             delete axios.defaults.headers.common['Authorization']
             setIsAuthenticated(false)
-            navigate('/login')
+            navigate('/login') // 👈 Redirect to log in screen
         }
     }
 
-    if (loading) {
-        return <div>Loading...</div>
-    }
+    if (loading) return <div>Loading...</div>
 
     return (
         <AuthContext.Provider value={{ isAuthenticated, loginUser, logoutUser }}>
