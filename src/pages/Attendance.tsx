@@ -21,6 +21,14 @@ export default function Attendance() {
         fetchAttendances();
     }, []);
 
+    interface ApiError extends Error {
+        response?: {
+            data?: {
+                message?: string;
+            };
+        };
+    }
+
     const fetchAttendances = async () => {
         setLoading(true);
         try {
@@ -54,29 +62,29 @@ export default function Attendance() {
         }
 
         const memberIdMatch = data.match(/memberId:\s*([a-f0-9]{24})/i);
-        if (memberIdMatch) {
-            const memberId = memberIdMatch[1];
-            try {
-                await addAttendance(memberId, {
-                    timeIn: new Date().toISOString(),
-                    timeOut: null,
-                    status: 'Present',
-                });
-                toast.success(`Attendance recorded for member ID ${memberId}`, { position: 'top-right' });
-                fetchAttendances();
-            } catch (error) {
-                if (error instanceof Error && error.message === 'Already marked in and out') {
-                    toast.info('Time in and out already recorded.', { position: 'top-right' });
-                } else {
-                    console.error('Unexpected error recording attendance:', error);
-                    toast.error('Something went wrong');
-                }
-            }
-        } else {
-            toast.error('Member ID not found in QR code', { position: 'top-right' });
+        if (!memberIdMatch) {
+            toast.error('Member ID not found in QR code', {position: 'top-right'});
+            return;
         }
-        setShowCamera(false);
 
+        const memberId = memberIdMatch[1];
+        try {
+            await addAttendance(memberId, {
+                timeIn: new Date().toISOString(),
+                timeOut: null,
+                status: 'Present',
+            });
+            toast.success(`Attendance recorded for member ID ${memberId}`, {position: 'top-right'});
+            fetchAttendances();
+        } catch (error: unknown) {
+            console.error('Error recording attendance:', error);
+            // Type guard to safely access error properties
+            const errorMessage = error instanceof Error && 'response' in error
+                ? (error as ApiError).response?.data?.message || 'Something went wrong'
+                : 'Something went wrong';
+            toast.error(errorMessage, {position: 'top-right'});
+            setShowCamera(false);
+        }
     };
 
     const handleScanButtonClick = () => {
@@ -117,7 +125,6 @@ export default function Attendance() {
             );
         }
 
-        // Date range filter
         if (dateFilter.startDate || dateFilter.endDate) {
             filtered = filtered.filter((att) => {
                 const attDate = new Date(att.date);
@@ -147,8 +154,8 @@ export default function Attendance() {
     const hasActiveFilters = searchTerm || dateFilter.startDate || dateFilter.endDate || timeFilter !== 'all';
 
     const renderTable = (attendancesToShow: Attendance[]) => (
-        <div className="overflow-x-auto h-full">
-            <table className="w-full min-w-[640px] h-full">
+        <div className="overflow-auto max-h-[500px]">
+            <table className="w-full min-w-[640px]">
                 <thead>
                 <tr className="bg-slate-50 dark:bg-slate-700/50 border-b dark:border-slate-600">
                     <th className="py-4 px-6 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
@@ -179,41 +186,44 @@ export default function Attendance() {
                             index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50/50 dark:bg-slate-800/50'
                         }`}
                     >
+                        <td className="py-4 px-6 font-medium text-slate-900 dark:text-white">
+                            {att.name || 'N/A'}
+                        </td>
+                        <td className="py-4 px-6 hidden sm:table-cell text-slate-600 dark:text-slate-300 font-mono text-sm">
+                            {att.nicNumber || 'N/A'}
+                        </td>
+                        <td className="py-4 px-6 hidden sm:table-cell text-slate-600 dark:text-slate-300 font-mono text-sm">
+                            {att.mobileNumber || 'N/A'}
+                        </td>
+                        <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
+                            {new Date(att.date).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                            })}
+                        </td>
                         <td className="py-4 px-6">
-                            <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
-                                {att.name || 'N/A'}
-                            </div>
-                        </td>
-                        <td className="py-4 px-6 hidden sm:table-cell">
-                            <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
-                                {att.nicNumber || 'N/A'}
-                            </div>
-                        </td>
-                        <td className="py-4 px-6 hidden sm:table-cell">
-                            <div className="text-slate-600 dark:text-slate-300 font-mono text-sm">
-                                {att.mobileNumber || 'N/A'}
-                            </div>
-                        </td>
-                        <td className="py-4 px-6">
-                            <div className="text-slate-600 dark:text-slate-300">
-                                {new Date(att.date).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
+                            <div
+                                className="inline-block px-4 py-1 rounded-full border border-green-500 bg-green-600 bg-opacity-20 text-green-800 dark:text-green-300 font-medium text-sm shadow-sm"
+                                title={att.timeIn}
+                            >
+                                {new Date(att.timeIn).toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
                                 })}
                             </div>
                         </td>
                         <td className="py-4 px-6">
-                            <div className="text-slate-600 dark:text-slate-300">
-                                {new Date(att.timeIn).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}
-                            </div>
-                        </td>
-                        <td className="py-4 px-6">
-                            <div className="text-slate-600 dark:text-slate-300">
-                                {att.timeOut && att.timeOut !== 'N/A' ? new Date(att.timeOut).toLocaleTimeString('en-US', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                }) : 'N/A'}
+                            <div
+                                className="inline-block px-4 py-1 rounded-full border border-red-500 bg-red-600 bg-opacity-20 text-red-800 dark:text-red-300 font-medium text-sm shadow-sm"
+                                title={att.timeOut || 'No time out recorded'}
+                            >
+                                {att.timeOut && att.timeOut !== 'N/A'
+                                    ? new Date(att.timeOut).toLocaleTimeString('en-US', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    })
+                                    : 'N/A'}
                             </div>
                         </td>
                     </tr>
@@ -237,7 +247,6 @@ export default function Attendance() {
             />
             <Sidebar/>
             <div className="flex-1 p-4 sm:p-6 md:p-8">
-                {/* Header Section */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white mb-2">Attendance</h1>
@@ -273,10 +282,8 @@ export default function Attendance() {
                     </div>
                 </div>
 
-                {/* QR Scanner Modal */}
                 {showCamera && <QRScannerModal onScan={handleQRScan} onClose={() => setShowCamera(false)}/>}
 
-                {/* Filters Section */}
                 {showFilters && (
                     <div
                         className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-lg p-6 mb-6">
@@ -353,7 +360,6 @@ export default function Attendance() {
                     </div>
                 )}
 
-                {/* Attendance Table */}
                 <div
                     className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/50 overflow-hidden">
                     {loading ? (

@@ -61,6 +61,7 @@ export const addAttendance = async (memberId: string, attendance: {
     status: string
 }) => {
     const response = await api.post(`/v1/attendance/scan/${memberId}`, attendance);
+    console.log(attendance);
     return response.data;
 };
 
