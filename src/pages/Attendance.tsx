@@ -8,6 +8,8 @@ import QRScannerModal from '../components/QRScannerModal.tsx';
 import {addAttendance, getAttendances} from '../services/api';
 import type {Attendance} from '../types';
 
+import {io} from 'socket.io-client';
+
 export default function Attendance() {
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loading, setLoading] = useState(false);
@@ -18,7 +20,24 @@ export default function Attendance() {
     const [showCamera, setShowCamera] = useState(false);
 
     useEffect(() => {
+        const socket = io('http://localhost:3500');
+
+        socket.on('attendanceUpdate', (attendance) => {
+            console.log("Attendance Return on Backend Socket", attendance);
+
+            if(attendance.success){
+                toast.success(`Attendance recorded for member ${attendance.data.name}`, {position: 'top-right'});
+                fetchAttendances();
+            }else{
+                toast.error(attendance.data.message || 'Attendance Mark Failed', {position: 'top-right'});
+            }
+        });        
+
         fetchAttendances();
+
+        return () => {
+            socket.disconnect();
+        };
     }, []);
 
     interface ApiError extends Error {
