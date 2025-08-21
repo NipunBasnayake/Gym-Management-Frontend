@@ -7,6 +7,7 @@ import {
     MessageSquare,
     Users,
     Dumbbell,
+    ClipboardPlus    
 } from 'lucide-react';
 import {useContext, memo} from 'react';
 import {AuthContext} from '../context/AuthContext.tsx';
@@ -17,6 +18,7 @@ const navItems = [
     {path: '/attendance', label: 'Attendance', icon: Calendar},
     {path: '/payments', label: 'Payments', icon: CreditCard},
     {path: '/notifications', label: 'Notifications', icon: MessageSquare},
+    {path: '/reports', label: 'Report', icon: ClipboardPlus}
 ];
 
 // Memoized Nav Item component

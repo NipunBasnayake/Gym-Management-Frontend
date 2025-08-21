@@ -7,6 +7,7 @@ import Notifications from './pages/Notifications'
 import Payments from './pages/Payments'
 import Login from './pages/Login'
 import {type JSX, useContext} from 'react'
+import Report from './pages/Report'
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
     const { isAuthenticated } = useContext(AuthContext)
@@ -23,6 +24,7 @@ function App() {
                 <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
                 <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+                <Route path='/reports' element={<ProtectedRoute><Report /></ProtectedRoute>} />
             </Routes>
         </AuthProvider>
     )
