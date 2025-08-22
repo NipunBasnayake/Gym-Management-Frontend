@@ -121,3 +121,19 @@ export const updatePayment = async (id: string, payment: Payment) => {
     const response = await api.put(`/v1/payment/${id}`, payment);
     return response.data;
 };
+
+//Report API
+export const getStats = async () => {
+    const response = await api.get('/v1/reports/stats');
+    return response.data;
+};
+
+export const getRevenueReport = async (filter: string) => {
+    const response = await api.get(`/v1/reports/revenueReport?filter=${filter}`);
+    return response.data;
+};
+
+export const getAttendanceReport = async (filter: string) => {
+    const response = await api.get(`/v1/reports/attendanceReport?filter=${filter}`)
+    return response.data;
+};

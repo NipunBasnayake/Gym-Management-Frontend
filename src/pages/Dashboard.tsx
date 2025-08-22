@@ -9,6 +9,7 @@ import { addAttendance, getAttendanceByMemberId, getMemberById, addMember } from
 import type { Member, Attendance } from '../types';
 import type { IDetectedBarcode } from '@yudiel/react-qr-scanner';
 import { AxiosError } from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
     const [isScanning, setIsScanning] = useState(false);
@@ -17,6 +18,7 @@ export default function Dashboard() {
     const [formData, setFormData] = useState<Member | null>(null);
     const [loading, setLoading] = useState(false);
     const [memberCache, setMemberCache] = useState<Map<string, Member>>(new Map());
+    const navigate = useNavigate();
 
     const fetchMemberData = async (memberId: string): Promise<Member> => {
         if (memberCache.has(memberId)) {
@@ -204,12 +206,14 @@ export default function Dashboard() {
                                     className="text-sm font-medium text-slate-700 dark:text-slate-300">Schedule Class</span>
                             </button>
                             <button
+                                onClick={() => navigate('/payments')}                         
                                 className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-md hover:shadow-lg transition-all duration-200 border border-slate-200 dark:border-slate-700 text-center hover:-translate-y-0.5 h-44 md:h-[175px] flex flex-col items-center justify-center">
                                 <CreditCard className="w-6 h-6 text-purple-600 dark:text-purple-400 mx-auto mb-2" />
                                 <span
                                     className="text-sm font-medium text-slate-700 dark:text-slate-300">Process Payment</span>
                             </button>
                             <button
+                                onClick={() => navigate('/reports')}
                                 className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-md hover:shadow-lg transition-all duration-200 border border-slate-200 dark:border-slate-700 text-center hover:-translate-y-0.5 h-44 md:h-[175px] flex flex-col items-center justify-center">
                                 <BarChart className="w-6 h-6 text-orange-600 dark:text-orange-400 mx-auto mb-2" />
                                 <span

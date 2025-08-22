@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Users, Activity, DollarSign, Clock, TrendingUp } from "lucide-react";
 import {
   LineChart,
@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { toast, ToastContainer } from "react-toastify";
 import Sidebar from "../components/Sidebar";
+import { getAttendanceReport, getRevenueReport, getStats } from "../services/api";
 
 // ------------------ Card Components ------------------ //
 interface CardProps {
@@ -74,20 +75,72 @@ const StatCard: React.FC<StatCardProps> = ({
 
 // ------------------ Reports Page ------------------ //
 const Reports: React.FC = () => {
-  const [filter, setFilter] = useState<"week" | "month" | "year">("month");
 
-  // Demo stats
-  const stats = {
-    totalMembers: 325,
-    activeMembers: 210,
-    todayAttendance: 48,
-    thisMonthRevenue: 12500,
-    attendanceGrowth: 5.4,
-    revenueGrowth: 12.7,
+  const [filter, setFilter] = useState<"week" | "month" | "year">("month");
+  const [stats, setStats] = useState({
+    totalMembers: 0,
+    activeMembers: 0,
+    todayAttendance: 0,
+    thisMonthRevenue: 0,
+    attendanceGrowth: 0,
+    revenueGrowth: 0,
+  })
+
+  const [attendanceData, setattendanceData] = useState([]);
+  const [revenueData, setRevenueData] = useState([]);
+
+  useEffect(() => {
+    fetchStats()
+    fetchAttendanceReportData();
+    fetchRevenueReportData();
+  },[filter])
+
+  const fetchStats = async () => {
+    try{
+      const stats = await getStats();
+      console.log("stats Data", stats);
+      
+      setStats(stats);
+    }catch(e){
+      console.log("stats error", e);      
+      toast.error('Stats Fetch Failed...')
+    }
   };
 
+  const fetchAttendanceReportData = async () => {
+    try{
+      const attendanceReportData = await getAttendanceReport(filter);
+      console.log("Attendance Report Data", attendanceReportData);
+      setattendanceData(attendanceReportData);
+    }catch(e) {
+      console.log("Attendance Report Data Fetch Failed...",e);
+      toast.error("Attendance Report Data Fetch Error");      
+    }
+  };
+
+  const fetchRevenueReportData = async () => {
+    try{
+      const revenueReportData = await getRevenueReport(filter);
+      console.log("Revenue report Data", revenueReportData);
+      setRevenueData(revenueReportData);
+    }catch(e){
+      console.log("Revenue Report Data Fetch Failed...", e);
+      toast.error("Revenue Data Report Fetch Error"); 
+    }
+  }
+
+  /* // Demo stats
+  const stats = {
+    totalMembers: 0,
+    activeMembers: 0,
+    todayAttendance: 0,
+    thisMonthRevenue: 0,
+    attendanceGrowth: 0,
+    revenueGrowth: 0,
+  }; */
+
   // Revenue datasets
-  const revenueData = {
+  /* const revenueData = {
     week: [
       { label: "Mon", revenue: 1200 },
       { label: "Tue", revenue: 1500 },
@@ -117,10 +170,10 @@ const Reports: React.FC = () => {
       { label: "Nov", revenue: 22000 },
       { label: "Dec", revenue: 24000 },
     ],
-  };
+  }; */
 
   // Attendance datasets
-  const attendanceData = {
+  /* const attendanceData = {
     week: [
       { label: "Mon", members: 42 },
       { label: "Tue", members: 38 },
@@ -150,7 +203,7 @@ const Reports: React.FC = () => {
       { label: "Nov", members: 1900 },
       { label: "Dec", members: 2000 },
     ],
-  };
+  }; */
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
@@ -200,7 +253,7 @@ const Reports: React.FC = () => {
         />
         <StatCard
           title="Monthly Revenue"
-          value={`$${stats.thisMonthRevenue.toLocaleString()}`}
+          value={`LKR ${stats.thisMonthRevenue.toLocaleString()}`}
           subtitle="This month's earnings"
           icon={DollarSign}
           trend={stats.revenueGrowth}
@@ -220,7 +273,7 @@ const Reports: React.FC = () => {
         <Card className="p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Revenue</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={revenueData[filter]}>
+            <LineChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
               <XAxis dataKey="label" stroke="#94a3b8" />
               <YAxis stroke="#94a3b8" />
@@ -246,7 +299,7 @@ const Reports: React.FC = () => {
         <Card className="p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Attendance</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={attendanceData[filter]}>
+            <BarChart data={attendanceData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
               <XAxis dataKey="label" stroke="#94a3b8" />
               <YAxis stroke="#94a3b8" />
