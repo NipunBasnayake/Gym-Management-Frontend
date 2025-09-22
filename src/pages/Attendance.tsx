@@ -20,7 +20,7 @@ export default function Attendance() {
     const [showCamera, setShowCamera] = useState(false);
 
     useEffect(() => {
-        const socket = io('http://localhost:3500');
+        const socket = io(import.meta.env.VITE_API_URL);
 
         socket.on('attendanceUpdate', (attendance) => {
             console.log("Attendance Return on Backend Socket", attendance);
