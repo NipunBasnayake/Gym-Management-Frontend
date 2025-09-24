@@ -20,7 +20,7 @@ export default function Attendance() {
     const [showCamera, setShowCamera] = useState(false);
 
     useEffect(() => {
-        const socket = io(import.meta.env.VITE_API_URL);
+        const socket = io('https://api.rskfitness.technook.lk');
 
         socket.on('attendanceUpdate', (attendance) => {
             console.log("Attendance Return on Backend Socket", attendance);
@@ -227,6 +227,7 @@ export default function Attendance() {
                                 title={att.timeIn}
                             >
                                 {new Date(att.timeIn).toLocaleTimeString('en-US', {
+                                    timeZone: 'Asia/Colombo',
                                     hour: '2-digit',
                                     minute: '2-digit',
                                 })}
