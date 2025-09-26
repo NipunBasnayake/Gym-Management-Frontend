@@ -317,7 +317,7 @@ export default function Attendance() {
                 {att.mobileNumber || "N/A"}
               </td>
               <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                {new Date(att.date).toLocaleDateString("en-US", {
+                {new Date(att.timeIn).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "short",
                   day: "numeric",
