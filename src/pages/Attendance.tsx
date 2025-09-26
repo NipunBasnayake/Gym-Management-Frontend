@@ -273,7 +273,7 @@ export default function Attendance() {
     timeFilter !== "all";
 
   const renderTable = (attendancesToShow: Attendance[]) => (
-    <div className="overflow-auto max-h-[500px]">
+    <div className="overflow-auto max-h-[80vh]">
       <table className="w-full min-w-[640px]">
         <thead>
           <tr className="bg-slate-50 dark:bg-slate-700/50 border-b dark:border-slate-600">

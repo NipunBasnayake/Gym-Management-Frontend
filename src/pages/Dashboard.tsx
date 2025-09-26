@@ -159,7 +159,7 @@ export default function Dashboard() {
                                 className="bg-white dark:bg-slate-800 rounded-lg px-4 py-2 shadow-sm border border-slate-200 dark:border-slate-700">
                                 <span className="text-sm text-slate-600 dark:text-slate-400">Today:</span>
                                 <span
-                                    className="ml-2 font-semibold text-slate-800 dark:text-slate-200">July 7, 2025</span>
+                                    className="ml-2 font-semibold text-slate-800 dark:text-slate-200">{new Date().toLocaleDateString()}</span>
                             </div>
                         </div>
                     </div>
